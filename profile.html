@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Employee Profile - Leave Management System</title>
+  <link rel="stylesheet" href="profile-style.css">
+  <!-- FontAwesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+
+  <div class="dashboard-container">
+    
+    <!-- Navigation Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <i class="fa-solid fa-calendar-check logo-icon"></i>
+        <h2>LeavePortal</h2>
+      </div>
+      <nav class="sidebar-menu">
+        <a href="#"><i class="fa-solid fa-house"></i> Dashboard</a>
+        <a href="#"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
+        <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
+        <a href="#" class="active"><i class="fa-solid fa-user"></i> My Profile</a>
+        <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
+      </nav>
+      <div class="sidebar-footer">
+        <a href="#" id="logoutBtn"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      
+      <!-- Top Header -->
+      <header class="top-header">
+        <h1>My Profile</h1>
+        <div class="user-badge">
+          <img src="https://via.placeholder.com/40" alt="User Avatar" id="headerAvatar">
+          <span id="headerUserName">John Doe</span>
+        </div>
+      </header>
+
+      <!-- Profile Section Grid -->
+      <div class="profile-grid">
+        
+        <!-- Left Column: Summary Card -->
+        <div class="card profile-summary-card">
+          <div class="profile-avatar-container">
+            <img src="https://via.placeholder.com/120" alt="Profile Picture" id="profileImage">
+            <label for="imageUpload" class="upload-btn">
+              <i class="fa-solid fa-camera"></i>
+            </label>
+            <input type="file" id="imageUpload" accept="image/*" hidden>
+          </div>
+          <h2 id="displayName">John Doe</h2>
+          <p class="designation" id="displayTitle">Software Engineer</p>
+          <p class="emp-id"><span class="badge">Emp ID: EMP-1024</span></p>
+
+          <hr class="divider">
+
+          <div class="quick-info">
+            <div class="info-item">
+              <i class="fa-solid fa-building"></i>
+              <span>Engineering Department</span>
+            </div>
+            <div class="info-item">
+              <i class="fa-solid fa-envelope"></i>
+              <span id="displayEmail">john.doe@company.com</span>
+            </div>
+            <div class="info-item">
+              <i class="fa-solid fa-phone"></i>
+              <span id="displayPhone">+1 234 567 890</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Details & Leave Overview -->
+        <div class="profile-details-column">
+          
+          <!-- Leave Balances Summary -->
+          <div class="card leave-summary-card">
+            <h3>Leave Quota Summary</h3>
+            <div class="leave-cards-container">
+              <div class="leave-card annual">
+                <h4>Annual Leave</h4>
+                <div class="leave-count">12 / 14</div>
+                <small>Days Remaining</small>
+              </div>
+              <div class="leave-card casual">
+                <h4>Casual Leave</h4>
+                <div class="leave-count">5 / 7</div>
+                <small>Days Remaining</small>
+              </div>
+              <div class="leave-card medical">
+                <h4>Medical Leave</h4>
+                <div class="leave-count">10 / 10</div>
+                <small>Days Remaining</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabbed Profile Details -->
+          <div class="card profile-form-card">
+            <div class="profile-tabs">
+              <button class="tab-btn active" onclick="openTab(event, 'personalTab')">Personal Info</button>
+              <button class="tab-btn" onclick="openTab(event, 'employmentTab')">Employment Details</button>
+            </div>
+
+            <!-- Tab 1: Personal Info -->
+            <div id="personalTab" class="tab-content active">
+              <form id="profileForm">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="firstName">First Name</label>
+                    <input type="text" id="firstName" value="John" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label for="lastName">Last Name</label>
+                    <input type="text" id="lastName" value="Doe" disabled>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" value="john.doe@company.com" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" value="+1 234 567 890" disabled>
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label for="dob">Date of Birth</label>
+                    <input type="date" id="dob" value="1995-05-15" disabled>
+                  </div>
+                  <div class="form-group">
+                    <label for="address">Address</label>
+                    <input type="text" id="address" value="123 Science Park, Tech City" disabled>
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button type="button" id="editBtn" class="btn btn-secondary"><i class="fa-solid fa-pen"></i> Edit Profile</button>
+                  <button type="submit" id="saveBtn" class="btn btn-primary" style="display: none;"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Tab 2: Employment Info -->
+            <div id="employmentTab" class="tab-content">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Employee ID</label>
+                  <input type="text" value="EMP-1024" disabled>
+                </div>
+                <div class="form-group">
+                  <label>Department</label>
+                  <input type="text" value="Software Engineering" disabled>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Designation</label>
+                  <input type="text" value="Software Engineer" disabled>
+                </div>
+                <div class="form-group">
+                  <label>Reporting Manager</label>
+                  <input type="text" value="Sarah Jenkins" disabled>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Joining Date</label>
+                  <input type="date" value="2022-03-01" disabled>
+                </div>
+                <div class="form-group">
+                  <label>Employment Type</label>
+                  <input type="text" value="Full-Time Permanent" disabled>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </main>
+
+  </div>
+
+  <script src="profile-script.js"></script>
+</body>
+</html>
