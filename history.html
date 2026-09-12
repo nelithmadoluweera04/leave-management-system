@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Leave History - Leave Management System</title>
+  <link rel="stylesheet" href="profile-style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+  <link rel="stylesheet" href="history-style.css">
+</head>
+<body>
+  <div class="dashboard-container">
+    <aside class="sidebar">
+      <div class="sidebar-header"><i class="fa-solid fa-calendar-check logo-icon"></i><h2>LeavePortal</h2></div>
+      <nav class="sidebar-menu">
+        <a href="/dashboard"><i class="fa-solid fa-chart-line"></i><span>Dashboard</span></a>
+        <a href="/employee/profile"><i class="fa-solid fa-user"></i><span>Profile</span></a>
+        <a href="/employee/request"><i class="fa-solid fa-paper-plane"></i><span>Apply Leave</span></a>
+        <a href="/employee/history" class="active"><i class="fa-solid fa-clock-rotate-left"></i><span>Leave History</span></a>
+      </nav>
+      <section class="leave-balance" aria-labelledby="balance-title">
+        <h2 id="balance-title">Leave Balance (2026)</h2>
+        <div><p>Sick <span>8/15 left</span></p><i class="balance-bar sick-balance" style="width:53%"></i></div>
+        <div><p>Casual <span>4/10 left</span></p><i class="balance-bar casual-balance" style="width:40%"></i></div>
+        <div><p>Annual <span>4/20 left</span></p><i class="balance-bar annual-balance" style="width:20%"></i></div>
+      </section>
+      <div class="sidebar-footer"><a href="/login"><i class="fa-solid fa-right-from-bracket"></i><span>Logout</span></a></div>
+    </aside>
+    <main class="main-content">
+      <header class="top-header"><h1>Leave History</h1><div class="user-badge"><img src="https://via.placeholder.com/40" alt="Profile"><span>John Doe</span></div></header>
+      <section class="summary-grid" aria-label="Leave summary">
+        <article class="summary-card"><i class="fa-regular fa-circle-check summary-icon taken"></i><p>Total Taken</p><strong id="totalTaken">18</strong><small>days this year</small></article>
+        <article class="summary-card"><i class="fa-regular fa-clock summary-icon pending-icon"></i><p>Pending</p><strong id="pendingCount">3</strong><small>awaiting approval</small></article>
+        <article class="summary-card"><i class="fa-regular fa-circle-xmark summary-icon rejected-icon"></i><p>Rejected</p><strong id="rejectedCount">1</strong><small>requests denied</small></article>
+        <article class="summary-card"><i class="fa-regular fa-file-lines summary-icon total-icon"></i><p>Total Requests</p><strong id="totalRequests">11</strong><small>all time</small></article>
+      </section>
+      <section class="card filter-card">
+        <div class="filter-container">
+          <label class="search-box"><i class="fa-solid fa-magnifying-glass"></i><input id="searchInput" type="search" placeholder="Search by ID or type..."></label>
+          <i class="fa-solid fa-filter filter-icon" aria-hidden="true"></i>
+          <select id="statusFilter" class="filter-select" aria-label="Filter by status"><option value="ALL">All Statuses</option><option value="Approved">Approved</option><option value="Pending">Pending</option><option value="Rejected">Rejected</option></select>
+          <select id="typeFilter" class="filter-select" aria-label="Filter by leave type"><option value="ALL">All Types</option><option value="Sick">Sick</option><option value="Casual">Casual</option><option value="Annual">Annual</option></select>
+          <div class="view-toggle" aria-label="History view">
+            <button class="view-button" type="button" data-view="table">Table</button>
+            <button class="view-button active" type="button" data-view="calendar">Calendar</button>
+          </div>
+          <button class="btn btn-secondary export-button" id="exportButton" type="button"><i class="fa-solid fa-download"></i>Export</button>
+        </div>
+      </section>
+      <section class="card history-card">
+        <div id="tableView">
+          <div class="table-responsive"><table class="history-table"><thead><tr><th>Leave ID</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Status</th><th>Applied On</th><th>Actions</th></tr></thead><tbody id="historyTableBody"></tbody></table></div>
+          <footer class="table-footer"><span id="resultInfo"></span><div class="pagination" id="pagination"></div></footer>
+        </div>
+        <section class="calendar-view" id="calendarView" aria-label="Leave calendar" hidden>
+          <div class="calendar-layout">
+            <div class="calendar-panel">
+              <header class="calendar-header">
+                <button class="calendar-nav" id="previousMonth" type="button" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></button>
+                <h2 id="calendarMonth" aria-live="polite"></h2>
+                <button class="calendar-nav" id="nextMonth" type="button" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></button>
+              </header>
+              <div class="calendar-weekdays" aria-hidden="true"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+              <div class="calendar-grid" id="calendarGrid"></div>
+              <p class="calendar-empty" id="calendarEmpty" hidden>No leave requests match the current filters.</p>
+            </div>
+            <aside class="calendar-details" aria-live="polite" aria-label="Leave details">
+              <h2 id="selectedDateHeading"></h2>
+              <div id="calendarDetails"></div>
+            </aside>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script src="history.js"></script>
+</body>
+</html>
