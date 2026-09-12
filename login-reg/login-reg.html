@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Page</title>
+  <link rel="stylesheet" href="login-reg-style.css">
+</head>
+<body>
+  <div class="card-body">
+    <div class="card active" id="login-form">
+      <form method="post" id="form">
+        <h1>Leave Management System</h1>
+        <div class="form-input">
+          <input type="text" name="username" id="username" placeholder="User name">
+
+          <input type="password" name="password" id="password" placeholder="Password" required>
+        </div>
+      </form>              
+      <div class="login-btn">
+        <button type="submit">Login</button>
+      </div>
+      <div class="reg-form">
+        <p>Don't have an account <a href="#" onclick="showForm('reg-form')">Register</a></p>
+      </div>
+    </div>
+    
+    <div class="card" id="reg-form">
+      <form action="" method="post" id="form">
+        <h1>REGISTER</h1>
+        <div class="user-name"> 
+          <input type="text" name="user name" id="username" placeholder="Username">
+        </div>
+
+        <div class="email">
+          <input type="email" name="emial" id="email" placeholder="E-mail">
+        </div>
+
+        <div class="pass">
+          <input type="password" name="password" id="password" placeholder="Enter Password">
+        </div>
+
+        <div class="pass-confirm">
+          <input type="password" name="pass-confirm" id="pass-confirm" placeholder="Re-enter password">
+        </div>
+
+        <div>
+          <select id="branch" class="branch-option">
+            <option hidden disabled selected value>--Select Branch--</option>
+            <option value="1">Admin Branch</option>
+            <option value="2">Employee Branch</option>
+          </select>
+        </div>       
+      </form>
+
+      <div class="register-btn">
+        <button type="submit">Register</button>
+      </div>
+      <div>
+        <p>Already have an account <a href="#"  onclick="showForm('login-form')">Login</a></p> 
+      </div>
+    </div>
+  </div> 
+  
+  <script src="login-reg-script.js"></script>
+</body>
+</html>
