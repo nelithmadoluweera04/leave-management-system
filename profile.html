@@ -5,23 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Employee Profile - Leave Management System</title>
   <link rel="stylesheet" href="profile-style.css">
-  <!-- FontAwesome for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
 
   <div class="dashboard-container">
     
-    <!-- Navigation Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header">
         <i class="fa-solid fa-calendar-check logo-icon"></i>
         <h2>LeavePortal</h2>
       </div>
       <nav class="sidebar-menu">
-        <a href="#"><i class="fa-solid fa-house"></i> Dashboard</a>
-        <a href="#"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
-        <a href="#"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
+        <a href="dashboard/dashboard.html"><i class="fa-solid fa-house"></i> Dashboard</a>
+        <a href="request/request.html"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
+        <a href="history/history.html"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
         <a href="#" class="active"><i class="fa-solid fa-user"></i> My Profile</a>
         <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
@@ -38,7 +36,7 @@
         <h1>My Profile</h1>
         <div class="user-badge">
           <img src="https://via.placeholder.com/40" alt="User Avatar" id="headerAvatar">
-          <span id="headerUserName">John Doe</span>
+          <span id="headerUserName">Chamodya Kathriarachchi</span>
         </div>
       </header>
 
@@ -54,7 +52,7 @@
             </label>
             <input type="file" id="imageUpload" accept="image/*" hidden>
           </div>
-          <h2 id="displayName">John Doe</h2>
+          <h2 id="displayName">Chamodya Kathriarachchi</h2>
           <p class="designation" id="displayTitle">Software Engineer</p>
           <p class="emp-id"><span class="badge">Emp ID: EMP-1024</span></p>
 
@@ -67,11 +65,11 @@
             </div>
             <div class="info-item">
               <i class="fa-solid fa-envelope"></i>
-              <span id="displayEmail">john.doe@company.com</span>
+              <span id="displayEmail">Chamodya@gamil.com</span>
             </div>
             <div class="info-item">
               <i class="fa-solid fa-phone"></i>
-              <span id="displayPhone">+1 234 567 890</span>
+              <span id="displayPhone">+74 654 8976</span>
             </div>
           </div>
         </div>
@@ -114,29 +112,29 @@
                 <div class="form-row">
                   <div class="form-group">
                     <label for="firstName">First Name</label>
-                    <input type="text" id="firstName" value="John" disabled>
+                    <input type="text" id="firstName" value="Chamodya" disabled>
                   </div>
                   <div class="form-group">
                     <label for="lastName">Last Name</label>
-                    <input type="text" id="lastName" value="Doe" disabled>
+                    <input type="text" id="lastName" value="Kathriarachchi" disabled>
                   </div>
                 </div>
 
                 <div class="form-row">
                   <div class="form-group">
                     <label for="email">Email Address</label>
-                    <input type="email" id="email" value="john.doe@company.com" disabled>
+                    <input type="email" id="email" value="chamodya@gmail.com" disabled>
                   </div>
                   <div class="form-group">
                     <label for="phone">Phone Number</label>
-                    <input type="tel" id="phone" value="+1 234 567 890" disabled>
+                    <input type="tel" id="phone" value="+74 087 5678" disabled>
                   </div>
                 </div>
 
                 <div class="form-row">
                   <div class="form-group">
                     <label for="dob">Date of Birth</label>
-                    <input type="date" id="dob" value="1995-05-15" disabled>
+                    <input type="date" id="dob" value="2004-05-15" disabled>
                   </div>
                   <div class="form-group">
                     <label for="address">Address</label>
