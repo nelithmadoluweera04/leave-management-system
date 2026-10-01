@@ -166,15 +166,30 @@ if (isset($_POST['add_employee'])) {
       </div>
       <nav class="sidebar-menu">
         <a href="dashboard.php"><i class="fa-solid fa-house"></i> Dashboard</a>
-        <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
-        <a href="history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
-        <a href="add-employee.php" class="active"><i class="fa-solid fa-user-gear"></i> Manage Employees</a>
+        
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] !== 'manager'): ?>
+          <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
+          <a href="history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'manager'): ?>
+          <a href="approve-requests.php"><i class="fa-solid fa-file-signature"></i> Approve Requests</a>
+          <a href="leave-quotas.php"><i class="fa-solid fa-sliders"></i> Leave Quotas</a>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+          <a href="add-employee.php"  class="active"><i class="fa-solid fa-user-gear"></i> Manage Employees</a>
+        <?php endif; ?>
+
         <a href="profile.php"><i class="fa-solid fa-user"></i> My Profile</a>
         <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
-      <div class="sidebar-footer">
-         <a href="#" onclick="confirmLogout(event)"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+      <div class="sidebar-footer" style="position: relative; z-index: 9999;">
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </a>
       </div>
+
     </aside>
 
     <main class="main-content">
@@ -269,9 +284,9 @@ if (isset($_POST['add_employee'])) {
                       <td style="text-align: center;">
                         <?php if(empty($row['id']) || $row['id'] !== $_SESSION['user_id']): ?>
                           
-                          <a href="add-employee.php?delete_email=<?= urlencode($row['email']); ?>" 
+                          <a href="#" 
                             style="color: #ef4444; font-size: 1rem;"
-                            onclick="return confirm('Are you sure you want to remove this authorization/user?');">
+                            onclick="event.preventDefault(); showPortalModal('Remove Employee', 'Are you completely sure you want to remove this employee account? This will also unauthorize their email.', 'danger', function(confirmed){ if(confirmed){ window.location.href='add-employee.php?delete_email=<?= urlencode($row['email']); ?>'; } });">
                             <i class="fa-solid fa-trash-can"></i>
                           </a>
                         <?php else: ?>
@@ -291,6 +306,7 @@ if (isset($_POST['add_employee'])) {
       </div>
     </main>
   </div>
+  <script src="dashboard-script.js"></script>
   <script src="add-employee.js"></script>
 </body>
 </html>

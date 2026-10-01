@@ -2,6 +2,11 @@
 session_start();
 require_once 'login-reg-config.php';
 
+if ($_SESSION['role'] === 'manager') {
+  header("Location: dashboard.php");
+  exit();
+}
+
 if (!isset($_SESSION['email'])) {
   header("Location: ../manage/login-reg-index.php");
   exit();
@@ -127,6 +132,7 @@ while ($row = $fetchLeaves->fetch_assoc()) {
         <a href="dashboard.php"><i class="fa-solid fa-house"></i> Dashboard</a>
         <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
         <a href="history.php" class="active"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
+
         
         <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
           <a href="add-employee.php"><i class="fa-solid fa-user-gear"></i> Manage Employees</a>
@@ -137,7 +143,7 @@ while ($row = $fetchLeaves->fetch_assoc()) {
       </nav>
       
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="../manage/logout.php" onclick="if(!confirm('Are you sure you want to log out of the system?')) { event.preventDefault(); return false; }">
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
           <i class="fa-solid fa-right-from-bracket"></i> Logout
         </a>
       </div>
@@ -256,5 +262,6 @@ while ($row = $fetchLeaves->fetch_assoc()) {
     const leaveHistoryData = <?php echo json_encode($leaveDataList); ?>;
   </script>
   <script src="history.js"></script>
+  <script src="dashboard-script.js"></script>
 </body>
 </html>

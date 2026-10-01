@@ -133,16 +133,26 @@ $displayPic = ($user['profile_pic'] !== 'default-avatar.png') ? './uploads/' . $
       </div>
       <nav class="sidebar-menu">
         <a href="dashboard.php"><i class="fa-solid fa-house"></i> Dashboard</a>
-        <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
-        <a href="history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
-        <?php if ($_SESSION['role'] === 'admin'): ?>
+        
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] !== 'manager'): ?>
+          <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
+          <a href="history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
+        <?php endif; ?>
+        
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'manager'): ?>
+          <a href="approve-requests.php"><i class="fa-solid fa-file-signature"></i> Approve Requests</a>
+          <a href="leave-quotas.php"><i class="fa-solid fa-sliders"></i> Leave Quotas</a>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
           <a href="add-employee.php"><i class="fa-solid fa-user-gear"></i> Manage Employees</a>
         <?php endif; ?>
+
         <a href="profile.php" class="active"><i class="fa-solid fa-user"></i> My Profile</a>
         <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="logout.php" onclick="if(!confirm('Are you sure you want to log out?')) { event.preventDefault(); return false; }">
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
           <i class="fa-solid fa-right-from-bracket"></i> Logout
         </a>
       </div>
@@ -263,6 +273,7 @@ $displayPic = ($user['profile_pic'] !== 'default-avatar.png') ? './uploads/' . $
     </main>
 
   </div>
+  <script src="dashboard-script.js"></script>
   <script src="profile.js"></script>
 </body>
 </html>

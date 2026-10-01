@@ -38,7 +38,7 @@ function render() {
       <td><span class="status-badge ${leave.status.toLowerCase()}">${leave.status}</span></td>
       <td>${leave.applied}</td>
       <td class="actions">
-        <button class="action-link" onclick="alert('Reason for Leave:\\n${leave.reason.replace(/'/g, "\\'")}')">View</button>
+        <button class="action-link" onclick="showPortalModal('Leave Reason Description', '${leave.reason.replace(/'/g, "\\'")}', 'alert')">View</button>
         ${leave.status === 'Pending' ? `<button class="action-link cancel" data-cancel="\${leave.id}">Cancel</button>` : ''}
       </td>
     </tr>
@@ -157,11 +157,22 @@ document.getElementById('pagination').addEventListener('click', (event) => {
 
 tableBody.addEventListener('click', (event) => {
   const cancelId = event.target.dataset.cancel;
-  if (cancelId && confirm(`Are you completely sure you want to cancel request ${cancelId}?`)) {
-    const rawNumericId = parseInt(cancelId.replace('LV-', ''), 10);
-    window.location.href = `history.php?cancel_id=${rawNumericId}`;
+  if (cancelId) {
+    event.preventDefault();
+    showPortalModal(
+      'Cancel Request', 
+      `Are you completely sure you want to cancel request ${cancelId}?`, 
+      'danger', 
+      function(confirmed) {
+        if (confirmed) {
+          const rawNumericId = parseInt(cancelId.replace('LV-', ''), 10);
+          window.location.href = `history.php?cancel_id=${rawNumericId}`;
+        }
+      }
+    );
   }
 });
+
 
 document.getElementById('exportButton').addEventListener('click', () => {
   const csvHeaders = 'Leave ID,Type,From,To,Days,Status,Applied On\n';

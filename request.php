@@ -2,6 +2,11 @@
 session_start();
 require_once 'login-reg-config.php';
 
+if ($_SESSION['role'] === 'manager') {
+  header("Location: dashboard.php");
+  exit();
+}
+
 if (!isset($_SESSION['email'])) {
   header("Location: login-reg-index.php");
   exit();
@@ -18,22 +23,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
   $reason    = trim($_POST['reason']);
 
   if (!empty($leaveType) && !empty($fromDate) && !empty($toDate) && !empty($reason)) {
-    $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("issss", $userId, $leaveType, $fromDate, $toDate, $reason);
+    $requestedDays = (strtotime($toDate) - strtotime($fromDate)) / (60 * 60 * 24) + 1;
 
-    if ($stmt->execute()) {
-      $message = "Leave request submitted successfully!";
-      $messageClass = "success-message";
-    } else {
-      $message = "Something went wrong. Please try again.";
+    $quotaStmt = $conn->prepare("SELECT max_days, max_days_per_month FROM leave_quotas WHERE leave_type = ?");
+    $quotaStmt->bind_param("s", $leaveType);
+    $quotaStmt->execute();
+    $quotaRes = $quotaStmt->get_result()->fetch_assoc();
+    $quotaStmt->close();
+
+    $maxYearly = $quotaRes['max_days'] ?? 14;
+    $maxMonthly = $quotaRes['max_days_per_month'] ?? 3;
+
+    $targetYear  = date('Y', strtotime($fromDate));
+    $targetMonth = date('m', strtotime($fromDate));
+
+    $monthCheck = $conn->prepare("
+      SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
+      FROM leave_requests 
+      WHERE user_id = ? AND leave_type = ? AND status != 'Rejected' 
+      AND YEAR(from_date) = ? AND MONTH(from_date) = ?
+    ");
+    $monthCheck->bind_param("isii", $userId, $leaveType, $targetYear, $targetMonth);
+    $monthCheck->execute();
+    $monthRow = $monthCheck->get_result()->fetch_assoc();
+    $monthCheck->close();
+    
+    $daysAlreadyTakenThisMonth = $monthRow['total'] ?? 0;
+
+    if (($daysAlreadyTakenThisMonth + $requestedDays) > $maxMonthly) {
+      $message = "Application Denied: The manager has restricted " . htmlspecialchars($leaveType) . " to a maximum of " . $maxMonthly . " days per month. You have already booked/requested " . $daysAlreadyTakenThisMonth . " days for this target month.";
       $messageClass = "error-message";
+    } else {
+      $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason) VALUES (?, ?, ?, ?, ?)");
+      $stmt->bind_param("issss", $userId, $leaveType, $fromDate, $toDate, $reason);
+
+      if ($stmt->execute()) {
+        $message = "Leave request submitted successfully!";
+        $messageClass = "success-message";
+      } else {
+        $message = "Something went wrong. Please try again.";
+        $messageClass = "error-message";
+      }
+      $stmt->close();
     }
-    $stmt->close();
   } else {
     $message = "Please fill in all fields.";
     $messageClass = "error-message";
   }
 }
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -166,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
         <a href="dashboard.php"><i class="fa-solid fa-house nav-icon"></i> Dashboard</a>
         <a href="request.php" class="active"><i class="fa-solid fa-plane-departure nav-icon"></i> Apply Leave</a>
         <a href="history.php"><i class="fa-solid fa-clock-rotate-left nav-icon"></i> Leave History</a>
-        
+      
         <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
           <a href="add-employee.php"><i class="fa-solid fa-user-gear"></i> Manage Employees</a>
         <?php endif; ?>
@@ -176,8 +214,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
       </nav>
       
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="../manage/logout.php" onclick="if(!confirm('Are you sure you want to log out of the system?')) { event.preventDefault(); return false; }">
-          <i class="fa-solid fa-right-from-bracket nav-icon"></i> Logout
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
+          <i class="fa-solid fa-right-from-bracket"></i> Logout
         </a>
       </div>
     </aside>
@@ -236,6 +274,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
       </div>
     </main>
   </div>
-
+  <script src="dashboard-script.js"></script>
 </body>
 </html>

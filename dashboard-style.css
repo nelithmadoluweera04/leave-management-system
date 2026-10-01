@@ -175,6 +175,115 @@ body{
 .stat-icon.approved { background-color: #def7ec; color: #03543f; }
 .stat-icon.pending { background-color: #fef3c7; color: #92400e; }
 
+/* Custom Modern Modal Container Stacking Window Layouts */
+.portal-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  display: none; 
+}
+
+.portal-modal-overlay.active {
+  display: flex;
+}
+
+.portal-modal-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 28px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  text-align: center;
+}
+
+.portal-modal-overlay.active .portal-modal-card {
+  transform: scale(1);
+}
+
+.portal-modal-icon {
+  width: 56px;
+  height: 56px;
+  background: #f5f3ff;
+  color: #4f46e5;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  margin: 0 auto 16px;
+}
+
+.portal-modal-icon.danger {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.portal-modal-card h3 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 8px;
+}
+
+.portal-modal-card p {
+  font-size: 0.95rem;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.portal-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.modal-btn {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s ease;
+}
+
+.modal-btn-confirm {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
+.modal-btn-confirm:hover {
+  background: #4338ca;
+}
+
+.modal-btn-danger {
+  background: #ef4444;
+  color: #ffffff;
+}
+
+.modal-btn-danger:hover {
+  background: #dc2626;
+}
+
+.modal-btn-cancel {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.modal-btn-cancel:hover {
+  background: #e5e7eb;
+}
+
+
 /* Page Column Organization Structure */
 .content-grid {
   display: grid;
@@ -270,4 +379,6 @@ th {
 .annual-progress { background-color: var(--primary-color); }
 .sick-progress { background-color: #10b981; }
 .casual-progress { background-color: #ef4444; }
+
+
 
