@@ -165,6 +165,12 @@ body{
   font-size: 1.25rem;
 }
 
+.status { padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 0.85rem; }
+.status-pending { background-color: #fef3c7; color: #b45309; }
+.status-approved { background-color: #dcfce7; color: #15803d; }
+.status-rejected { background-color: #fee2e2; color: #b91c1c; }
+
+
 .stat-icon.balance { background-color: #e0e7ff; color: #4f46e5; }
 .stat-icon.approved { background-color: #def7ec; color: #03543f; }
 .stat-icon.pending { background-color: #fef3c7; color: #92400e; }

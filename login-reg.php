@@ -43,8 +43,7 @@ if (isset($_POST['register'])) {
     
     $_SESSION['login_error'] = 'Registration successful! You can now log in.';
     $_SESSION['active_form'] = 'login';
-  }
-
+  } 
   header("Location: login-reg-index.php");
   exit();
 }
@@ -65,7 +64,9 @@ if (isset($_POST['login'])) {
       $_SESSION['name'] = $user['name'];
       $_SESSION['email'] = $user['email'];
       $_SESSION['role'] = $user['role'];
+      $_SESSION['profile_pic'] = $user['profile_pic'];
 
+      $stmt->close();
       header("Location: dashboard.php");
       exit();
     }

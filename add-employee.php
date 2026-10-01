@@ -64,7 +64,7 @@ if (isset($_POST['add_employee'])) {
     $message = "This email address is already fully registered in the user database!";
     $messageClass = "error-message";
   } else {
-    // 2. ONLY insert into allowed_emails table. User is NOT added to 'user' table yet.
+
     $stmtAllowed = $conn->prepare("INSERT INTO allowed_emails (email, role) VALUES (?, ?)");
     $stmtAllowed->bind_param("ss", $email, $role);
     
@@ -72,7 +72,7 @@ if (isset($_POST['add_employee'])) {
       $message = "Email successfully authorized! The employee can now register their account using this email.";
       $messageClass = "success-message";
     } else {
-      // Check if email already exists on the guest list
+
       if ($conn->errno == 1062) { 
         $message = "This email is already on the authorized whitelist invite list!";
       } else {
@@ -166,10 +166,10 @@ if (isset($_POST['add_employee'])) {
       </div>
       <nav class="sidebar-menu">
         <a href="dashboard.php"><i class="fa-solid fa-house"></i> Dashboard</a>
-        <a href="../request/request.html"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
-        <a href="../history/history.html"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
-        <a href="add-employee.php" class="active"><i class="fa-solid fa-user-plus"></i> Manage Employees</a>
-        <a href="../profile.html"><i class="fa-solid fa-user"></i> My Profile</a>
+        <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
+        <a href="history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
+        <a href="add-employee.php" class="active"><i class="fa-solid fa-user-gear"></i> Manage Employees</a>
+        <a href="profile.php"><i class="fa-solid fa-user"></i> My Profile</a>
         <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
       <div class="sidebar-footer">
@@ -186,7 +186,12 @@ if (isset($_POST['add_employee'])) {
           </button>
         </div>
         <div class="user-badge">
-          <img src="https://unsplash.com" alt="User Avatar">
+          <?php 
+            $userAvatar = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png') 
+                          ? 'uploads/' . $_SESSION['profile_pic'] 
+                          : 'https://unsplash.com';
+          ?>
+          <img src="<?= $userAvatar; ?>" alt="User Avatar">
           <span><?= htmlspecialchars($_SESSION['name']); ?></span>
         </div>
       </header>
@@ -250,9 +255,8 @@ if (isset($_POST['add_employee'])) {
             <tbody id="directory-table-body"> 
                 <?php if($employees->num_rows > 0): ?>
                   <?php while($row = $employees->fetch_assoc()): ?>
-                    <!-- Embedded data attribute helps JavaScript read roles directly -->
                     <tr class="user-row" data-role="<?= htmlspecialchars($row['role']); ?>">
-                      <!-- If name is empty, it means they haven't registered on the register page yet -->
+                      
                       <td>
                         <strong><?= !empty($row['name']) ? htmlspecialchars($row['name']) : '<em style="color:var(--text-muted)">Pending Registration</em>'; ?></strong>
                       </td>
@@ -264,7 +268,7 @@ if (isset($_POST['add_employee'])) {
                       </td>
                       <td style="text-align: center;">
                         <?php if(empty($row['id']) || $row['id'] !== $_SESSION['user_id']): ?>
-                          <!-- Pass the email instead of ID to the delete trigger so it handles unregistered invites too -->
+                          
                           <a href="add-employee.php?delete_email=<?= urlencode($row['email']); ?>" 
                             style="color: #ef4444; font-size: 1rem;"
                             onclick="return confirm('Are you sure you want to remove this authorization/user?');">
@@ -287,7 +291,6 @@ if (isset($_POST['add_employee'])) {
       </div>
     </main>
   </div>
-
   <script src="add-employee.js"></script>
 </body>
 </html>
