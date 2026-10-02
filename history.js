@@ -28,29 +28,37 @@ function render() {
   
   const rows = data.slice((currentPage - 1) * pageSize, currentPage * pageSize); 
   
-  tableBody.innerHTML = rows.length ? rows.map((leave) => `
-    <tr>
-      <td>${leave.id}</td>
-      <td><span class="leave-type">${leave.type}</span></td>
-      <td>${leave.from}</td>
-      <td>${leave.to}</td>
-      <td>${leave.days} Days</td>
-      <td><span class="status-badge ${leave.status.toLowerCase()}">${leave.status}</span></td>
-      <td>${leave.applied}</td>
-      <td class="actions">
-        <button class="action-link" onclick="showPortalModal('Leave Reason Description', '${leave.reason.replace(/'/g, "\\'")}', 'alert')">View</button>
-        ${leave.status === 'Pending' ? `<button class="action-link cancel" data-cancel="\${leave.id}">Cancel</button>` : ''}
-      </td>
-    </tr>
-  `).join('') : '<tr><td colspan="8" style="text-align:center; padding: 20px; color: var(--text-muted);">No leave requests found matching filters.</td></tr>'; 
+  if (tableBody) {
+    tableBody.innerHTML = rows.length ? rows.map((leave) => `
+      <tr>
+        <td><strong>${leave.id}</strong></td>
+        <td><span class="leave-type">${leave.type}</span></td>
+        <td>${leave.from}</td>
+        <td>${leave.to}</td>
+        <td><strong>${leave.days} Days</strong></td>
+        <td><span class="status-badge ${leave.status.toLowerCase()}">${leave.status}</span></td>
+        <td>${leave.applied}</td>
+        <td class="actions">
+          ${leave.status === 'Pending' ? `<button type="button" class="action-link cancel" onclick="openCancelModal('${leave.db_id || leave.id.replace('LV-','')}', '${leave.id}')" style="border:none; background:none; cursor:pointer; color:#dc2626; font-weight:600;">Cancel</button>` : '<span style="color:#9ca3af; font-style:italic; font-size:0.8rem;">Locked</span>'}
+        </td>
+      </tr>
+    `).join('') : '<tr><td colspan="8" style="text-align:center; padding: 20px; color: var(--text-muted);">No leave requests found matching filters.</td></tr>'; 
+  }
   
-  document.getElementById('resultInfo').textContent = `Showing ${data.length ? (currentPage - 1) * pageSize + 1 : 0} to ${Math.min(currentPage * pageSize, data.length)} of ${data.length} results`; 
+  const resultInfoEl = document.getElementById('resultInfo');
+  if (resultInfoEl) {
+    resultInfoEl.textContent = `Showing ${data.length ? (currentPage - 1) * pageSize + 1 : 0} to ${Math.min(currentPage * pageSize, data.length)} of ${data.length} results`; 
+  }
   
-  document.getElementById('pagination').innerHTML = `
-    <button ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}"><i class="fa-solid fa-chevron-left"></i></button>
-    ${Array.from({length:totalPages}, (_, index) => `<button class="\${currentPage === index + 1 ? 'active' : ''}" data-page="\({index + 1}">\){index + 1}</button>`).join('')}
-    <button ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}"><i class="fa-solid fa-chevron-right"></i></button>
-  `; 
+  const paginationEl = document.getElementById('pagination');
+  if (paginationEl) {
+    let paginationHtml = `<button ${currentPage === 1 ? 'disabled' : ''} data-page="${currentPage - 1}"><i class="fa-solid fa-chevron-left"></i></button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      paginationHtml += `<button class="${currentPage === i ? 'active' : ''}" data-page="${i}">${i}</button>`;
+    }
+    paginationHtml += `<button ${currentPage === totalPages ? 'disabled' : ''} data-page="${currentPage + 1}"><i class="fa-solid fa-chevron-right"></i></button>`;
+    paginationEl.innerHTML = paginationHtml;
+  }
   
   renderCalendar(); 
 }
@@ -88,17 +96,16 @@ function renderCalendar() {
     const outside = date.getMonth() !== month ? ' outside-month' : '';
     
     return `
-      <article class="calendar-day${outside}" data-date="${dayKey(date)}" role="button" tabindex="0">
-        <span class="calendar-date">${date.getDate()}</span>
-        ${events.map((leave) => `<span class="calendar-event \({leave.status.toLowerCase()}" title="\){leave.id}: \({leave.type} (\){leave.status})">\({leave.id} ·\){leave.type}</span>`).join('')}
-      </article>
+      <div class="calendar-day${outside}" data-date="${dayKey(date)}" style="cursor:pointer;">
+        <span class="day-number" style="font-weight:600; font-size:0.8rem;">${date.getDate()}</span>
+        ${events.map((leave) => `<span class="calendar-event \({leave.status.toLowerCase()}" style="display:block; padding:2px 4px; margin-top:2px; border-radius:4px; font-size:0.68rem; font-weight:600;" title="\){leave.id}: \({leave.type}">\){leave.type}</span>`).join('')}
+      </div>
     `;
   }).join('');
   
   grid.querySelectorAll('.calendar-day').forEach((day) => {
     const isSelected = day.dataset.date === dayKey(selectedDate);
     day.classList.toggle('selected-day', isSelected);
-    day.setAttribute('aria-pressed', isSelected);
   });
   
   renderCalendarDetails(data);
@@ -114,22 +121,24 @@ function renderCalendarDetails(data) {
   if (heading) heading.textContent = `Leaves on ${dateLabel}`;
   if (detailsBox) {
     detailsBox.innerHTML = leaves.length ? leaves.map((leave) => `
-      <article class="leave-detail-card">
-        <header>
+      <div class="leave-detail-card" style="padding:12px; border:1px solid var(--border-color); border-radius:8px; margin-top:10px; background:#fafafa;">
+        <header style="display:flex; justify-content:between; align-items:center;">
           <strong>${leave.id}</strong>
           <span class="status-badge ${leave.status.toLowerCase()}">${leave.status}</span>
         </header>
-        <p class="detail-type">${leave.type} Leave · ${leave.days} ${leave.days === 1 ? 'day' : 'days'}</p>
-        <p class="detail-description">${leave.reason || `\({leave.type} leave request submitted on\){leave.applied}.`}</p>
-      </article>
-    `).join('') : '<p class="details-empty">No leave requests for this date.</p>';
+        <p class="detail-type" style="font-size:0.8rem; font-weight:700; margin-top:4px;">${leave.type} Leave · ${leave.days} Days</p>
+        <p class="detail-description" style="font-size:0.75rem; color:var(--text-muted); line-height:1.4; margin-top:4px;">${leave.reason}</p>
+      </div>
+    `).join('') : '<p class="details-empty" style="color:#9ca3af; font-style:italic; font-size:0.85rem;">No leave requests for this date.</p>';
   }
 }
 
 function setView(view) { 
   activeView = view; 
-  document.getElementById('tableView').hidden = (view !== 'table'); 
-  document.getElementById('calendarView').hidden = (view !== 'calendar'); 
+  const tv = document.getElementById('tableView');
+  const cv = document.getElementById('calendarView');
+  if(tv) tv.hidden = (view !== 'table'); 
+  if(cv) cv.hidden = (view !== 'calendar'); 
   
   document.querySelectorAll('.view-button').forEach((button) => {
     button.classList.toggle('active', button.dataset.view === view);
@@ -147,87 +156,74 @@ if (statusFilter && typeFilter && searchInput) {
   });
 }
 
-document.getElementById('pagination').addEventListener('click', (event) => {
-  const button = event.target.closest('button');
-  if (button && button.dataset.page) {
-    currentPage = Number(button.dataset.page);
-    render();
-  }
-});
-
-tableBody.addEventListener('click', (event) => {
-  const cancelId = event.target.dataset.cancel;
-  if (cancelId) {
-    event.preventDefault();
-    showPortalModal(
-      'Cancel Request', 
-      `Are you completely sure you want to cancel request ${cancelId}?`, 
-      'danger', 
-      function(confirmed) {
-        if (confirmed) {
-          const rawNumericId = parseInt(cancelId.replace('LV-', ''), 10);
-          window.location.href = `history.php?cancel_id=${rawNumericId}`;
-        }
-      }
-    );
-  }
-});
-
-
-document.getElementById('exportButton').addEventListener('click', () => {
-  const csvHeaders = 'Leave ID,Type,From,To,Days,Status,Applied On\n';
-  const csvRows = filteredHistory().map((leave) => 
-    `"${leave.id}","${leave.type}","${leave.from}","${leave.to}","${leave.days}","${leave.status}","${leave.applied}"`
-  ).join('\n');
-  
-  const blob = new Blob([csvHeaders + csvRows], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const downloadLink = Object.assign(document.createElement('a'), {
-    href: url,
-    download: 'leave-history-report.csv'
+const paginationEl = document.getElementById('pagination');
+if (paginationEl) {
+  paginationEl.addEventListener('click', (event) => {
+    const button = event.target.closest('button');
+    if (button && button.dataset.page) {
+      currentPage = Number(button.dataset.page);
+      render();
+    }
   });
-  
-  document.body.appendChild(downloadLink);
-  downloadLink.click();
-  document.body.removeChild(downloadLink);
-  URL.revokeObjectURL(url);
-});
+}
 
-document.getElementById('previousMonth').addEventListener('click', () => {
-  calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1);
-  selectedDate = new Date(calendarDate);
-  renderCalendar();
-});
+const exportBtn = document.getElementById('exportButton');
+if (exportBtn) {
+  exportBtn.addEventListener('click', () => {
+    const csvHeaders = 'Leave ID,Type,From,To,Days,Status\n';
+    const csvRows = filteredHistory().map((leave) => 
+      `"${leave.id}","${leave.type}","${leave.from}","${leave.to}","${leave.days}","${leave.status}"`
+    ).join('\n');
+    
+    const blob = new Blob([csvHeaders + csvRows], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const downloadLink = Object.assign(document.createElement('a'), {
+      href: url,
+      download: 'leave-history-report.csv'
+    });
+    
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    URL.revokeObjectURL(url);
+  });
+}
 
-document.getElementById('nextMonth').addEventListener('click', () => {
-  calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
-  selectedDate = new Date(calendarDate);
-  renderCalendar();
-});
+const prevBtn = document.getElementById('previousMonth');
+if (prevBtn) {
+  prevBtn.addEventListener('click', () => {
+    calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1);
+    selectedDate = new Date(calendarDate);
+    renderCalendar();
+  });
+}
 
-document.getElementById('calendarGrid').addEventListener('click', (event) => {
-  const dayCard = event.target.closest('.calendar-day');
-  if (!dayCard) return;
-  
-  const [year, month, date] = dayCard.dataset.date.split('-').map(Number);
-  selectedDate = new Date(year, month, date);
-  renderCalendar();
-});
+const nextBtn = document.getElementById('nextMonth');
+if (nextBtn) {
+  nextBtn.addEventListener('click', () => {
+    calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
+    selectedDate = new Date(calendarDate);
+    renderCalendar();
+  });
+}
 
-document.getElementById('calendarGrid').addEventListener('keydown', (event) => {
-  if (event.key !== 'Enter' && event.key !== ' ') return;
-  const dayCard = event.target.closest('.calendar-day');
-  if (!dayCard) return;
-  
-  event.preventDefault();
-  const [year, month, date] = dayCard.dataset.date.split('-').map(Number);
-  selectedDate = new Date(year, month, date);
-  renderCalendar();
-});
+const gridEl = document.getElementById('calendarGrid');
+if (gridEl) {
+  gridEl.addEventListener('click', (event) => {
+    const dayCard = event.target.closest('.calendar-day');
+    if (!dayCard) return;
+    
+    const [year, month, date] = dayCard.dataset.date.split('-').map(Number);
+    selectedDate = new Date(year, month, date);
+    renderCalendar();
+  });
+}
 
 document.querySelectorAll('.view-button').forEach((button) => {
   button.addEventListener('click', () => setView(button.dataset.view));
 });
 
-render();
-setView(activeView);
+document.addEventListener("DOMContentLoaded", () => {
+  render();
+  setView(activeView);
+});

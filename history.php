@@ -258,6 +258,26 @@ while ($row = $fetchLeaves->fetch_assoc()) {
       </div>
     </main>
   </div>
+
+  <div id="cancel-leave-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15, 23, 42, 0.6); backdrop-filter:blur(4px); z-index:999999; justify-content:center; align-items:center; font-family:sans-serif;">
+    <div style="background:#fff; padding:30px; border-radius:12px; width:100%; max-width:400px; text-align:center; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1);">
+      <i class="fa-solid fa-circle-xmark" style="font-size:2.5rem; color:#ef4444; margin-bottom:15px;"></i>
+      <h3 style="margin-bottom:10px; font-size:1.3rem; color:#1f2937; font-weight:700;">Cancel Leave Request</h3>
+      <p style="color:#6b7280; font-size:0.95rem; margin-bottom:25px; line-height:1.5;">Are you completely sure you want to cancel request <strong id="modal-leave-display-id" style="color:#1f2937;"></strong>? This action cannot be undone.</p>
+      <div style="display:flex; gap:12px; justify-content:center;">
+        <button onclick="document.getElementById('cancel-leave-modal').style.display='none';" style="padding:10px 20px; background:#f3f4f6; color:#4b5563; border:none; border-radius:6px; font-weight:600; cursor:pointer; font-size:0.9rem;">No, Keep It</button>
+        <a id="modal-confirm-cancel-link" href="#" style="padding:10px 20px; background:#ef4444; color:#fff; text-decoration:none; border-radius:6px; font-weight:600; font-size:0.9rem; display:inline-block;">Yes, Cancel Request</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function openCancelModal(dbId, displayId) {
+      document.getElementById('modal-leave-display-id').innerText = displayId;
+      document.getElementById('modal-confirm-cancel-link').href = 'history.php?cancel_id=' + dbId;
+      document.getElementById('cancel-leave-modal').style.display = 'flex';
+    }
+  </script>
   <script>
     const leaveHistoryData = <?php echo json_encode($leaveDataList); ?>;
   </script>

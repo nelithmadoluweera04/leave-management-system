@@ -12,45 +12,68 @@ $userRole = $_SESSION['role'];
 $currentYear  = date('Y');
 $currentMonth = date('m');
 
+$checkRequestsTable = $conn->query("SHOW TABLES LIKE 'leave_requests'");
+$requestsTableExists = ($checkRequestsTable && $checkRequestsTable->num_rows > 0);
+
 if ($userRole === 'manager') {
-  $receivedQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE YEAR(created_at) = '$currentYear' AND MONTH(created_at) = '$currentMonth'");
-  $monthReceived = $receivedQuery->fetch_assoc()['total'] ?? 0;
+  $monthReceived = 0;
+  $monthApproved = 0;
+  $monthRejected = 0;
+  $employeeSummary = false;
 
-  $approvedQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE status = 'Approved' AND YEAR(created_at) = '$currentYear' AND MONTH(created_at) = '$currentMonth'");
-  $monthApproved = $approvedQuery->fetch_assoc()['total'] ?? 0;
+  if ($requestsTableExists) {
+    $receivedQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE YEAR(created_at) = '$currentYear' AND MONTH(created_at) = '$currentMonth'");
+    $monthReceived = $receivedQuery->fetch_assoc()['total'] ?? 0;
 
-  $rejectedQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE status = 'Rejected' AND YEAR(created_at) = '$currentYear' AND MONTH(created_at) = '$currentMonth'");
-  $monthRejected = $rejectedQuery->fetch_assoc()['total'] ?? 0;
+    $approvedQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE status = 'Approved' AND YEAR(created_at) = '$currentYear' AND MONTH(created_at) = '$currentMonth'");
+    $monthApproved = $approvedQuery->fetch_assoc()['total'] ?? 0;
 
-  $employeeSummary = $conn->query("
-    SELECT u.id, u.name, u.email, u.role,
-           COALESCE(SUM(CASE WHEN lr.status = 'Approved' THEN DATEDIFF(lr.to_date, lr.from_date) + 1 ELSE 0 END), 0) AS days_taken,
-           COALESCE(SUM(CASE WHEN lr.status = 'Pending' THEN 1 ELSE 0 END), 0) AS pending_count
-    FROM user u
-    LEFT JOIN leave_requests lr ON u.id = lr.user_id
-    WHERE u.role != 'manager'
-    GROUP BY u.id
-    ORDER BY u.name ASC
-  ");
+    $rejectedQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE status = 'Rejected' AND YEAR(created_at) = '$currentYear' AND MONTH(created_at) = '$currentMonth'");
+    $monthRejected = $rejectedQuery->fetch_assoc()['total'] ?? 0;
+
+    $employeeSummary = $conn->query("
+      SELECT u.id, u.name, u.email, u.role,
+             COALESCE(SUM(CASE WHEN lr.status = 'Approved' THEN DATEDIFF(lr.to_date, lr.from_date) + 1 ELSE 0 END), 0) AS days_taken,
+             COALESCE(SUM(CASE WHEN lr.status = 'Pending' THEN 1 ELSE 0 END), 0) AS pending_count
+      FROM user u
+      LEFT JOIN leave_requests lr ON u.id = lr.user_id
+      WHERE u.role != 'manager'
+      GROUP BY u.id
+      ORDER BY u.name ASC
+    ");
+  }
 } else {
-  $approvedQuery = $conn->query("SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total FROM leave_requests WHERE user_id = $userId AND status = 'Approved'");
-  $approvedLeaves = $approvedQuery->fetch_assoc()['total'] ?? 0;
+  $approvedLeaves = 0;
+  $pendingRequests = 0;
+  $hasRecent = false;
+  $recentRow = null;
 
-  $pendingQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE user_id = $userId AND status = 'Pending'");
-  $pendingRequests = $pendingQuery->fetch_assoc()['total'] ?? 0;
+  if ($requestsTableExists) {
+    $approvedQuery = $conn->query("SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total FROM leave_requests WHERE user_id = $userId AND status = 'Approved'");
+    $approvedLeaves = $approvedQuery->fetch_assoc()['total'] ?? 0;
 
-  $maxYearlyAllowance = 31;
+    $pendingQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE user_id = $userId AND status = 'Pending'");
+    $pendingRequests = $pendingQuery->fetch_assoc()['total'] ?? 0;
+
+    $recentLeave = $conn->query("SELECT leave_type, from_date, to_date, status FROM leave_requests WHERE user_id = $userId ORDER BY id DESC LIMIT 1");
+    $hasRecent = ($recentLeave && $recentLeave->num_rows > 0);
+    $recentRow = $hasRecent ? $recentLeave->fetch_assoc() : null;
+  }
+
+  // Safety fallback checker for the leave_quotas table schema
+  $maxYearlyAllowance = 31; 
+  $checkQuotaTable = $conn->query("SHOW TABLES LIKE 'leave_quotas'");
+  if ($checkQuotaTable && $checkQuotaTable->num_rows > 0) {
+    $totalSystemQuotaQuery = $conn->query("SELECT SUM(max_days) AS total FROM leave_quotas");
+    if ($totalSystemQuotaQuery) {
+      $maxYearlyAllowance = $totalSystemQuotaQuery->fetch_assoc()['total'] ?? 31;
+    }
+  }
   $availableBalance = max(0, $maxYearlyAllowance - $approvedLeaves);
-
-  $recentLeave = $conn->query("SELECT leave_type, from_date, to_date, status FROM leave_requests WHERE user_id = $userId ORDER BY id DESC LIMIT 1");
-  $hasRecent = $recentLeave->num_rows > 0;
-  $recentRow = $recentLeave->fetch_assoc();
 }
 
-$displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png') ? 'uploads/' . $_SESSION['profile_pic'] : 'https://unsplash.com';
+$displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png' && !empty($_SESSION['profile_pic'])) ? 'uploads/' . $_SESSION['profile_pic'] : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80';
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="en">
@@ -92,15 +115,11 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
         <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
 
-
-      
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of the LeavePortal system session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
           <i class="fa-solid fa-right-from-bracket"></i> Logout
         </a>
       </div>
-
-
 
     </aside>
 
@@ -161,7 +180,7 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
                 </tr>
               </thead>
               <tbody>
-                <?php if ($employeeSummary->num_rows > 0): ?>
+                <?php if ($employeeSummary && $employeeSummary->num_rows > 0): ?>
                   <?php while ($emp = $employeeSummary->fetch_assoc()): ?>
                     <tr style="border-bottom: 1px solid var(--border-color);">
                       <td style="padding: 15px 12px;"><strong><?= htmlspecialchars($emp['name']); ?></strong></td>
@@ -221,7 +240,7 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
                   </tr>
                 </thead>
                 <tbody>
-                  <?php if ($hasRecent): 
+                  <?php if ($hasRecent && $recentRow): 
                     $days = (strtotime($recentRow['to_date']) - strtotime($recentRow['from_date'])) / (60 * 60 * 24) + 1;
                   ?>
                     <tr style="border-bottom: 1px solid var(--border-color);">
@@ -248,16 +267,30 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
             <div class="leave-balance-list" style="display: flex; flex-direction: column; gap: 20px;">
               <?php
               $quotaLimits = ['Annual Leave' => 14, 'Casual Leave' => 7, 'Sick Leave' => 10];
+              
+              if (isset($checkQuotaTable) && $checkQuotaTable->num_rows > 0) {
+                $quotaRes = $conn->query("SELECT * FROM leave_quotas");
+                if ($quotaRes) {
+                  while ($qRow = $quotaRes->fetch_assoc()) {
+                    $quotaLimits[$qRow['leave_type']] = (int)$qRow['max_days'];
+                  }
+                }
+              }
+
               $quotaTaken  = ['Annual Leave' => 0, 'Casual Leave' => 0, 'Sick Leave' => 0];
 
-              $barQuery = $conn->query("SELECT leave_type, SUM(DATEDIFF(to_date, from_date) + 1) AS days FROM leave_requests WHERE user_id = $userId AND status = 'Approved' GROUP BY leave_type");
-              while ($barRow = $barQuery->fetch_assoc()) {
-                $t = $barRow['leave_type'];
-                if (isset($quotaTaken[$t])) { $quotaTaken[$t] = (int)$barRow['days']; }
+              if ($requestsTableExists) {
+                $barQuery = $conn->query("SELECT leave_type, SUM(DATEDIFF(to_date, from_date) + 1) AS days FROM leave_requests WHERE user_id = $userId AND status = 'Approved' GROUP BY leave_type");
+                if ($barQuery) {
+                  while ($barRow = $barQuery->fetch_assoc()) {
+                    $t = $barRow['leave_type'];
+                    if (isset($quotaTaken[$t])) { $quotaTaken[$t] = (int)$barRow['days']; }
+                  }
+                }
               }
 
               foreach ($quotaLimits as $typeTitle => $limitMax):
-                $takenCount = $quotaTaken[$typeTitle];
+                $takenCount = $quotaTaken[$typeTitle] ?? 0;
                 $remCount   = max(0, $limitMax - $takenCount);
                 $percentage = ($limitMax > 0) ? ($remCount / $limitMax) * 100 : 0;
                 $barColor = '#27c79a';
@@ -266,7 +299,7 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
               ?>
                 <div class="balance-group">
                   <div class="balance-item" style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; font-weight: 500;">
-                    <span style="color: var(--text-muted);"><?= $typeTitle; ?></span>
+                    <span style="color: var(--text-muted);"><?= htmlspecialchars($typeTitle); ?></span>
                     <strong style="color: var(--text-main);"><?= $remCount; ?> / <?= $limitMax; ?> Left</strong>
                   </div>
                   <div class="progress-bar-container" style="width: 100%; height: 6px; background-color: #f3f4f6; border-radius: 4px; overflow: hidden;">
@@ -280,7 +313,6 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
 
       <?php endif; ?>
     </main>  
-
   </div>
   <script src="dashboard-script.js"></script>
 </body>

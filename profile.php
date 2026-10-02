@@ -19,20 +19,37 @@ $nameParts = explode(" ", $user['name'], 2);
 $firstName = $nameParts[0];
 $lastName  = isset($nameParts[1]) ? $nameParts[1] : '';
 
-$leaveLimits = ['Annual Leave' => 14, 'Casual Leave' => 7, 'Sick Leave' => 10];
-$leaveTaken  = ['Annual Leave' => 0, 'Casual Leave' => 0, 'Sick Leave' => 0];
+$leaveLimits = ['Annual Leave' => 14, 'Casual Leave' => 7, 'Sick Leave' => 10]; // System fallback guidelines
 
-$takenQuery = $conn->query("SELECT leave_type, SUM(DATEDIFF(to_date, from_date) + 1) AS days FROM leave_requests WHERE user_id = $userId AND status = 'Approved' GROUP BY leave_type");
-while ($row = $takenQuery->fetch_assoc()) {
-  $type = $row['leave_type'];
-  if (isset($leaveTaken[$type])) {
-    $leaveTaken[$type] = (int)$row['days'];
+$checkQuotaTable = $conn->query("SHOW TABLES LIKE 'leave_quotas'");
+if ($checkQuotaTable && $checkQuotaTable->num_rows > 0) {
+  $quotaRes = $conn->query("SELECT * FROM leave_quotas");
+  if ($quotaRes) {
+    while ($qRow = $quotaRes->fetch_assoc()) {
+      $leaveLimits[$qRow['leave_type']] = (int)$qRow['max_days'];
+    }
   }
 }
 
-$annualRem  = max(0, $leaveLimits['Annual Leave'] - $leaveTaken['Annual Leave']);
-$casualRem  = max(0, $leaveLimits['Casual Leave'] - $leaveTaken['Casual Leave']);
-$medicalRem = max(0, $leaveLimits['Sick Leave'] - $leaveTaken['Sick Leave']);
+$leaveTaken = ['Annual Leave' => 0, 'Casual Leave' => 0, 'Sick Leave' => 0];
+
+$checkRequestsTable = $conn->query("SHOW TABLES LIKE 'leave_requests'");
+if ($checkRequestsTable && $checkRequestsTable->num_rows > 0) {
+  $takenQuery = $conn->query("SELECT leave_type, SUM(DATEDIFF(to_date, from_date) + 1) AS days FROM leave_requests WHERE user_id = $userId AND status = 'Approved' GROUP BY leave_type");
+  if ($takenQuery) {
+    while ($row = $takenQuery->fetch_assoc()) {
+      $type = $row['leave_type'];
+      if (isset($leaveTaken[$type])) {
+        $leaveTaken[$type] = (int)$row['days'];
+      }
+    }
+  }
+}
+
+// 2. Dynamic Remaining Balances Context Calculation
+$annualRem  = max(0, ($leaveLimits['Annual Leave'] ?? 14) - ($leaveTaken['Annual Leave'] ?? 0));
+$casualRem  = max(0, ($leaveLimits['Casual Leave'] ?? 7) - ($leaveTaken['Casual Leave'] ?? 0));
+$medicalRem = max(0, ($leaveLimits['Sick Leave'] ?? 10) - ($leaveTaken['Sick Leave'] ?? 0));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_profile'])) {
   $formFirst = trim($_POST['first_name']);
@@ -69,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_profile'])) {
   }
   $updateStmt->close();
 }
-$displayPic = ($user['profile_pic'] !== 'default-avatar.png') ? './uploads/' . $user['profile_pic'] : 'https://unsplash.com';
+$displayPic = (!empty($user['profile_pic']) && $user['profile_pic'] !== 'default-avatar.png') ? './uploads/' . $user['profile_pic'] : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -194,9 +211,9 @@ $displayPic = ($user['profile_pic'] !== 'default-avatar.png') ? './uploads/' . $
             <div class="card leave-summary-card">
               <h3 style="font-weight: 700; color: #172b4d;">Leave Quota Summary</h3>
               <div class="leave-cards-container" style="margin-top: 15px;">
-                <div class="leave-card annual"><h4>Annual Leave</h4><div class="leave-count"><?= $annualRem; ?> / 14</div><small>Days Remaining</small></div>
-                <div class="leave-card casual"><h4>Casual Leave</h4><div class="leave-count"><?= $casualRem; ?> / 7</div><small>Days Remaining</small></div>
-                <div class="leave-card medical"><h4>Medical Leave</h4><div class="leave-count"><?= $medicalRem; ?> / 10</div><small>Days Remaining</small></div>
+                <div class="leave-card annual"><h4>Annual Leave</h4><div class="leave-count"><?= $annualRem; ?> / <?= $leaveLimits['Annual Leave']; ?></div><small>Days Remaining</small></div>
+                <div class="leave-card casual"><h4>Casual Leave</h4><div class="leave-count"><?= $casualRem; ?> / <?= $leaveLimits['Casual Leave']; ?></div><small>Days Remaining</small></div>
+                <div class="leave-card medical"><h4>Medical Leave</h4><div class="leave-count"><?= $medicalRem; ?> / <?= $leaveLimits['Sick Leave']; ?></div><small>Days Remaining</small></div>
               </div>
             </div>
 
@@ -241,7 +258,6 @@ $displayPic = ($user['profile_pic'] !== 'default-avatar.png') ? './uploads/' . $
                 </div>
               </div>
 
-              <!-- EMPLOYMENT DETAILS VIEW LAYER -->
               <div id="employment" class="tab-content" style="margin-top: 20px;">
                 <div class="form-row">
                   <div class="form-group">
@@ -274,6 +290,36 @@ $displayPic = ($user['profile_pic'] !== 'default-avatar.png') ? './uploads/' . $
 
   </div>
   <script src="dashboard-script.js"></script>
-  <script src="profile.js"></script>
+  <script>
+    function openTab(evt, tabName) {
+      var i, tabcontent, tablinks;
+      tabcontent = document.getElementsByClassName("tab-content");
+      for (i = 0; i < tabcontent.length; i++) {
+        tabcontent[i].classList.remove("active");
+        tabcontent[i].style.display = "none";
+      }
+      tablinks = document.getElementsByClassName("tab-btn");
+      for (i = 0; i < tablinks.length; i++) {
+        tablinks[i].classList.remove("active");
+      }
+      document.getElementById(tabName).style.display = "block";
+      document.getElementById(tabName).classList.add("active");
+      evt.currentTarget.classList.add("active");
+    }
+
+    const editBtn = document.getElementById('editBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const imageUpload = document.getElementById('imageUpload');
+    const formInputs = document.querySelectorAll('#personal input:not([type="email"])');
+
+    if(editBtn && saveBtn) {
+      editBtn.addEventListener('click', () => {
+        formInputs.forEach(input => input.removeAttribute('disabled'));
+        if(imageUpload) imageUpload.removeAttribute('disabled');
+        saveBtn.style.display = 'flex';
+        editBtn.style.display = 'none';
+      });
+    }
+  </script>
 </body>
 </html>

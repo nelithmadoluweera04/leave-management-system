@@ -22,49 +22,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
   $toDate    = $_POST['to_date'];
   $reason    = trim($_POST['reason']);
 
+  
+
   if (!empty($leaveType) && !empty($fromDate) && !empty($toDate) && !empty($reason)) {
-    $requestedDays = (strtotime($toDate) - strtotime($fromDate)) / (60 * 60 * 24) + 1;
-
-    $quotaStmt = $conn->prepare("SELECT max_days, max_days_per_month FROM leave_quotas WHERE leave_type = ?");
-    $quotaStmt->bind_param("s", $leaveType);
-    $quotaStmt->execute();
-    $quotaRes = $quotaStmt->get_result()->fetch_assoc();
-    $quotaStmt->close();
-
-    $maxYearly = $quotaRes['max_days'] ?? 14;
-    $maxMonthly = $quotaRes['max_days_per_month'] ?? 3;
-
-    $targetYear  = date('Y', strtotime($fromDate));
-    $targetMonth = date('m', strtotime($fromDate));
-
-    $monthCheck = $conn->prepare("
-      SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
-      FROM leave_requests 
-      WHERE user_id = ? AND leave_type = ? AND status != 'Rejected' 
-      AND YEAR(from_date) = ? AND MONTH(from_date) = ?
-    ");
-    $monthCheck->bind_param("isii", $userId, $leaveType, $targetYear, $targetMonth);
-    $monthCheck->execute();
-    $monthRow = $monthCheck->get_result()->fetch_assoc();
-    $monthCheck->close();
     
-    $daysAlreadyTakenThisMonth = $monthRow['total'] ?? 0;
-
-    if (($daysAlreadyTakenThisMonth + $requestedDays) > $maxMonthly) {
-      $message = "Application Denied: The manager has restricted " . htmlspecialchars($leaveType) . " to a maximum of " . $maxMonthly . " days per month. You have already booked/requested " . $daysAlreadyTakenThisMonth . " days for this target month.";
+    if (strtotime($toDate) < strtotime($fromDate)) {
+      $message = "Application Denied: 'To Date' cannot be earlier than your 'From Date'. Negative days are blocked.";
       $messageClass = "error-message";
     } else {
-      $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason) VALUES (?, ?, ?, ?, ?)");
-      $stmt->bind_param("issss", $userId, $leaveType, $fromDate, $toDate, $reason);
+      
+      $requestedDays = (strtotime($toDate) - strtotime($fromDate)) / (60 * 60 * 24) + 1;
 
-      if ($stmt->execute()) {
-        $message = "Leave request submitted successfully!";
-        $messageClass = "success-message";
-      } else {
-        $message = "Something went wrong. Please try again.";
+      $quotaStmt = $conn->prepare("SELECT max_days, max_days_per_month FROM leave_quotas WHERE leave_type = ?");
+
+      $quotaStmt->bind_param("s", $leaveType);
+      $quotaStmt->execute();
+      $quotaRes = $quotaStmt->get_result()->fetch_assoc();
+      $quotaStmt->close();
+
+      $maxYearly = $quotaRes['max_days'] ?? 14;
+      $maxMonthly = $quotaRes['max_days_per_month'] ?? 3;
+
+      $targetYear  = date('Y', strtotime($fromDate));
+      $targetMonth = date('m', strtotime($fromDate));
+
+      $monthCheck = $conn->prepare("
+        SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
+        FROM leave_requests 
+        WHERE user_id = ? AND leave_type = ? AND status != 'Rejected' 
+        AND YEAR(from_date) = ? AND MONTH(from_date) = ?
+      ");
+      $monthCheck->bind_param("isii", $userId, $leaveType, $targetYear, $targetMonth);
+      $monthCheck->execute();
+      $monthRow = $monthCheck->get_result()->fetch_assoc();
+      $monthCheck->close();
+      
+      $daysAlreadyTakenThisMonth = $monthRow['total'] ?? 0;
+
+      if (($daysAlreadyTakenThisMonth + $requestedDays) > $maxMonthly) {
+        $message = "Application Denied: The manager has restricted " . htmlspecialchars($leaveType) . " to a maximum of " . $maxMonthly . " days per month. You have already booked/requested " . $daysAlreadyTakenThisMonth . " days for this target month.";
         $messageClass = "error-message";
+      } else {
+        $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("issss", $userId, $leaveType, $fromDate, $toDate, $reason);
+
+        if ($stmt->execute()) {
+          $message = "Leave request submitted successfully!";
+          $messageClass = "success-message";
+        } else {
+          $message = "Something went wrong. Please try again.";
+          $messageClass = "error-message";
+        }
+        $stmt->close();
       }
-      $stmt->close();
     }
   } else {
     $message = "Please fill in all fields.";
@@ -241,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
               <div class="<?= $messageClass; ?>"><?= $message; ?></div>
           <?php endif; ?>
 
-          <form action="request.php" method="POST">
+          <form action="request.php" method="POST" onsubmit="return validateLeaveDates()">
             <div class="form-group">
               <label for="leaveType">Leave Type</label>
               <select id="leaveType" name="leave_type" required>
@@ -255,7 +265,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
             <div class="form-row">
               <div class="form-group">
                 <label for="fromDate">From Date</label>
-                <input type="date" id="fromDate" name="from_date" required>
+                <input type="date" id="fromDate" name="from_date" required onchange="setMinToDate()">
               </div>
               <div class="form-group">
                 <label for="toDate">To Date</label>
