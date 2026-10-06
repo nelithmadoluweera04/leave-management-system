@@ -59,12 +59,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
       
       $daysAlreadyTakenThisMonth = $monthRow['total'] ?? 0;
 
-      if (($daysAlreadyTakenThisMonth + $requestedDays) > $maxMonthly) {
+          if (($daysAlreadyTakenThisMonth + $requestedDays) > $maxMonthly) {
         $message = "Application Denied: The manager has restricted " . htmlspecialchars($leaveType) . " to a maximum of " . $maxMonthly . " days per month. You have already booked/requested " . $daysAlreadyTakenThisMonth . " days for this target month.";
         $messageClass = "error-message";
       } else {
-        $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("issss", $userId, $leaveType, $fromDate, $toDate, $reason);
+        $attachmentName = null;
+
+        if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
+          $fileTmpPath = $_FILES['attachment']['tmp_name'];
+          $fileName = $_FILES['attachment']['name'];
+          $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+          
+          $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'];
+          if (in_array($fileExtension, $allowedExtensions)) {
+            $attachmentName = 'doc_' . $userId . '_' . time() . '.' . $fileExtension;
+            $uploadDir = './uploads/';
+            if (!is_dir($uploadDir)) { mkdir($uploadDir, 0777, true); }
+            move_uploaded_file($fileTmpPath, $uploadDir . $attachmentName);
+          }
+        }
+
+        $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason, attachment) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("isssss", $userId, $leaveType, $fromDate, $toDate, $reason, $attachmentName);
 
         if ($stmt->execute()) {
           $message = "Leave request submitted successfully!";
@@ -75,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
         }
         $stmt->close();
       }
+
     }
   } else {
     $message = "Please fill in all fields.";
@@ -251,7 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
               <div class="<?= $messageClass; ?>"><?= $message; ?></div>
           <?php endif; ?>
 
-          <form action="request.php" method="POST" onsubmit="return validateLeaveDates()">
+          <form action="request.php" method="POST" onsubmit="return validateLeaveDates()" enctype="multipart/form-data">
             <div class="form-group">
               <label for="leaveType">Leave Type</label>
               <select id="leaveType" name="leave_type" required>
@@ -276,6 +293,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
             <div class="form-group">
               <label for="reason">Reason</label>
               <textarea id="reason" name="reason" rows="4" placeholder="Provide a reason for your leave request..." required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="attachment">Attachment (Optional)</label>
+              <input type="file" id="attachment" name="attachment" accept=".jpg,.jpeg,.png,.pdf,.doc,.docx">
             </div>
 
             <button type="submit" name="submit_leave" class="btn-primary">Submit Request</button>

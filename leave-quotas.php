@@ -68,17 +68,18 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
       <nav class="sidebar-menu">
         <a href="dashboard.php"><i class="fa-solid fa-house"></i> Dashboard</a>
         
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] !== 'manager'): ?>
+        <?php if ($_SESSION['role'] !== 'manager'): ?>
           <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
           <a href="history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
         <?php endif; ?>
         
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'manager'): ?>
+        <?php if ($_SESSION['role'] === 'manager'): ?>
           <a href="approve-requests.php"><i class="fa-solid fa-file-signature"></i> Approve Requests</a>
           <a href="leave-quotas.php" class="active"><i class="fa-solid fa-sliders"></i> Leave Quotas</a>
+          <a href="company-status.php"><i class="fa-solid fa-users-viewfinder"></i> Company Status</a>
         <?php endif; ?>
 
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+        <?php if ($_SESSION['role'] === 'admin'): ?>
           <a href="add-employee.php"><i class="fa-solid fa-user-gear"></i> Manage Employees</a>
         <?php endif; ?>
 

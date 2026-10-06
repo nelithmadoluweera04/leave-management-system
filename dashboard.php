@@ -15,12 +15,16 @@ $currentMonth = date('m');
 $checkRequestsTable = $conn->query("SHOW TABLES LIKE 'leave_requests'");
 $requestsTableExists = ($checkRequestsTable && $checkRequestsTable->num_rows > 0);
 
-if ($userRole === 'manager') {
-  $monthReceived = 0;
-  $monthApproved = 0;
-  $monthRejected = 0;
-  $employeeSummary = false;
+$monthReceived = 0;
+$monthApproved = 0;
+$monthRejected = 0;
+$employeeSummary = false;
+$approvedLeaves = 0;
+$pendingRequests = 0;
+$hasRecent = false;
+$recentRow = null;
 
+if ($userRole === 'manager') {
   if ($requestsTableExists) {
     $receivedQuery = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WHERE YEAR(created_at) = '$currentYear' AND MONTH(created_at) = '$currentMonth'");
     $monthReceived = $receivedQuery->fetch_assoc()['total'] ?? 0;
@@ -35,7 +39,7 @@ if ($userRole === 'manager') {
       SELECT u.id, u.name, u.email, u.role,
              COALESCE(SUM(CASE WHEN lr.status = 'Approved' THEN DATEDIFF(lr.to_date, lr.from_date) + 1 ELSE 0 END), 0) AS days_taken,
              COALESCE(SUM(CASE WHEN lr.status = 'Pending' THEN 1 ELSE 0 END), 0) AS pending_count
-      FROM user u
+    FROM user u
       LEFT JOIN leave_requests lr ON u.id = lr.user_id
       WHERE u.role != 'manager'
       GROUP BY u.id
@@ -43,11 +47,6 @@ if ($userRole === 'manager') {
     ");
   }
 } else {
-  $approvedLeaves = 0;
-  $pendingRequests = 0;
-  $hasRecent = false;
-  $recentRow = null;
-
   if ($requestsTableExists) {
     $approvedQuery = $conn->query("SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total FROM leave_requests WHERE user_id = $userId AND status = 'Approved'");
     $approvedLeaves = $approvedQuery->fetch_assoc()['total'] ?? 0;
@@ -59,21 +58,44 @@ if ($userRole === 'manager') {
     $hasRecent = ($recentLeave && $recentLeave->num_rows > 0);
     $recentRow = $hasRecent ? $recentLeave->fetch_assoc() : null;
   }
-
-  // Safety fallback checker for the leave_quotas table schema
-  $maxYearlyAllowance = 31; 
-  $checkQuotaTable = $conn->query("SHOW TABLES LIKE 'leave_quotas'");
-  if ($checkQuotaTable && $checkQuotaTable->num_rows > 0) {
-    $totalSystemQuotaQuery = $conn->query("SELECT SUM(max_days) AS total FROM leave_quotas");
-    if ($totalSystemQuotaQuery) {
-      $maxYearlyAllowance = $totalSystemQuotaQuery->fetch_assoc()['total'] ?? 31;
-    }
-  }
-  $availableBalance = max(0, $maxYearlyAllowance - $approvedLeaves);
 }
 
-$displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png' && !empty($_SESSION['profile_pic'])) ? 'uploads/' . $_SESSION['profile_pic'] : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=100&q=80';
+$maxYearlyAllowance = 31; 
+$checkQuotaTable = $conn->query("SHOW TABLES LIKE 'leave_quotas'");
+if ($checkQuotaTable && $checkQuotaTable->num_rows > 0) {
+  $totalSystemQuotaQuery = $conn->query("SELECT SUM(max_days) AS total FROM leave_quotas");
+  if ($totalSystemQuotaQuery) {
+    $maxYearlyAllowance = $totalSystemQuotaQuery->fetch_assoc()['total'] ?? 31;
+  }
+}
+$availableBalance = max(0, $maxYearlyAllowance - $approvedLeaves);
+
+$monthlyData = array_fill(1, 12, 0);
+if ($requestsTableExists) {
+  if ($userRole === 'manager') {
+    $chartQuery = $conn->query("SELECT MONTH(from_date) as month, SUM(DATEDIFF(to_date, from_date) + 1) as total_days FROM leave_requests WHERE status = 'Approved' AND YEAR(from_date) = '$currentYear' GROUP BY MONTH(from_date)");
+    if ($chartQuery) {
+      while ($row = $chartQuery->fetch_assoc()) {
+        $monthlyData[(int)$row['month']] = (int)$row['total_days'];
+      }
+    }
+  } else {
+    $chartQuery = $conn->query("SELECT MONTH(from_date) as month, SUM(DATEDIFF(to_date, from_date) + 1) as total_days FROM leave_requests WHERE user_id = '$userId' AND status = 'Approved' AND YEAR(from_date) = '$currentYear' GROUP BY MONTH(from_date)");
+    if ($chartQuery) {
+      while ($row = $chartQuery->fetch_assoc()) {
+        $monthlyData[(int)$row['month']] = (int)$row['total_days'];
+      }
+    }
+  }
+}
+
+$chartLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+$chartValues = array_values($monthlyData);
+
+
+$displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png' && !empty($_SESSION['profile_pic'])) ? './uploads/' . $_SESSION['profile_pic'] : 'https://unsplash.com';
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -83,6 +105,7 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
   <title>LeavePortal - Dashboard</title>
   <link rel="stylesheet" href="dashboard-style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="chart.min.js"></script>
 </head>
 <body>
 
@@ -105,6 +128,7 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
         <?php if ($_SESSION['role'] === 'manager'): ?>
           <a href="approve-requests.php"><i class="fa-solid fa-file-signature"></i> Approve Requests</a>
           <a href="leave-quotas.php"><i class="fa-solid fa-sliders"></i> Leave Quotas</a>
+          <a href="company-status.php"><i class="fa-solid fa-users-viewfinder"></i> Company Status</a>
         <?php endif; ?>
 
         <?php if ($_SESSION['role'] === 'admin'): ?>
@@ -207,9 +231,7 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
             </table>
           </div>
         </section>
-
       <?php else: ?>
-        
         <section class="stats-grid">
           <div class="stat-card">
             <div class="stat-info"><h3>Available Balance</h3><p><?= $availableBalance; ?> Days</p></div>
@@ -224,11 +246,12 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
             <div class="stat-icon pending"><i class="fa-solid fa-hourglass-half"></i></div>
           </div>
         </section>
-
-        <div class="content-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; margin-top: 25px;">
-          <section class="data-card" style="background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+        <div class="content-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: stretch; margin-top: 25px;">
+          
+          <!-- 1. Recent Leave Requests Panel Card Wrapper -->
+          <section class="data-card" style="background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; margin: 0;">
             <h2 class="card-title" style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700;">Recent Leave Requests</h2>
-            <div class="table-wrapper">
+            <div class="table-wrapper" style="flex: 1;">
               <table style="width: 100%; border-collapse: collapse; text-align: left;">
                 <thead>
                   <tr style="border-bottom: 1px solid var(--border-color);">
@@ -261,10 +284,9 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
               </table>
             </div>
           </section>
-
-          <section class="data-card" style="background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+          <section class="data-card" style="background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; margin: 0;">
             <h2 class="card-title" style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700;">Leave Allowance Breakdown</h2>
-            <div class="leave-balance-list" style="display: flex; flex-direction: column; gap: 20px;">
+            <div class="leave-balance-list" style="display: flex; flex-direction: column; gap: 20px; flex: 1; justify-content: center;">
               <?php
               $quotaLimits = ['Annual Leave' => 14, 'Casual Leave' => 7, 'Sick Leave' => 10];
               
@@ -310,10 +332,38 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
             </div>
           </section>
         </div>
-
       <?php endif; ?>
+      <section class="data-card" style="background: var(--card-bg, #ffffff); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-top: 25px; width: 100%; box-sizing: border-box;">
+        <h2 class="card-title" style="margin-bottom: 5px; font-size: 1.1rem; font-weight: 700;">
+          <?= ($userRole === 'admin' || $userRole === 'manager') ? 'Company-wide Monthly Absence Tracker' : 'My Monthly Leave Usage'; ?>
+        </h2>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 25px;">Approved leave allocation distribution metrics for the calendar year <?= $currentYear; ?>.</p>
+        
+        <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; align-items: end; height: 260px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; margin-top: 20px;">
+          <?php 
+          $maxMonthValue = max(1, max($chartValues));
+          foreach ($chartLabels as $index => $monthLabel): 
+            $daysCount = $chartValues[$index];
+            $barPercentage = ($daysCount / $maxMonthValue) * 100;
+          ?>
+            <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
+              <div style="font-size: 0.75rem; font-weight: 700; color: #4f46e5; margin-bottom: 4px; visibility: <?= $daysCount > 0 ? 'visible' : 'hidden'; ?>;">
+                <?= $daysCount; ?><span style="font-size:0.65rem; font-weight:500;">d</span>
+              </div>
+              <div style="width: 100%; max-width: 32px; height: <?= max(4, $barPercentage); ?>%; background: <?= $daysCount > 0 ? '#4f46e5' : '#f3f4f6'; ?>; border-radius: 6px 6px 0 0; transition: background 0.2s;" title="<?= $monthLabel; ?>: <?= $daysCount; ?> Days"></div>
+              <span style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; margin-top: 8px; text-transform: uppercase;"><?= $monthLabel; ?></span>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </section>
+
     </main>  
   </div>
-  <script src="dashboard-script.js"></script>
+ <script>
+  window.chartLabels = <?php echo json_encode($chartLabels); ?>;
+  window.chartValues = <?php echo json_encode($chartValues); ?>;
+  window.chartSeriesLabel = "<?php echo ($userRole === 'admin' || $userRole === 'manager') ? 'Total Days (All Employees)' : 'Days Approved'; ?>";
+</script>
+<script src="dashboard-script.js"></script>
 </body>
 </html>

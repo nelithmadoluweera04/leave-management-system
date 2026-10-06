@@ -25,10 +25,10 @@ if (isset($_GET['action']) && isset($_GET['req_id'])) {
 }
 
 $pendingRequests = $conn->query("
-  SELECT lr.id, lr.leave_type, lr.from_date, lr.to_date, lr.reason, lr.created_at, u.name AS employee_name, u.role AS employee_role 
-  FROM leave_requests lr 
-  JOIN user u ON lr.user_id = u.id 
-  WHERE lr.status = 'Pending' 
+  SELECT lr.id, lr.leave_type, lr.from_date, lr.to_date, lr.reason, lr.created_at, lr.attachment, u.name AS employee_name, u.role AS employee_role
+  FROM leave_requests lr
+  JOIN user u ON lr.user_id = u.id
+  WHERE lr.status = 'Pending'
   ORDER BY lr.id DESC
 ");
 
@@ -55,17 +55,18 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
       <nav class="sidebar-menu">
         <a href="dashboard.php"><i class="fa-solid fa-house"></i> Dashboard</a>
         
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] !== 'manager'): ?>
+        <?php if ($_SESSION['role'] !== 'manager'): ?>
           <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
           <a href="history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
         <?php endif; ?>
         
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'manager'): ?>
+        <?php if ($_SESSION['role'] === 'manager'): ?>
           <a href="approve-requests.php" class="active"><i class="fa-solid fa-file-signature"></i> Approve Requests</a>
           <a href="leave-quotas.php"><i class="fa-solid fa-sliders"></i> Leave Quotas</a>
+          <a href="company-status.php"><i class="fa-solid fa-users-viewfinder"></i> Company Status</a>
         <?php endif; ?>
 
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
+        <?php if ($_SESSION['role'] === 'admin'): ?>
           <a href="add-employee.php"><i class="fa-solid fa-user-gear"></i> Manage Employees</a>
         <?php endif; ?>
 
@@ -119,6 +120,7 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
                 <th style="padding:12px;">Type</th>
                 <th style="padding:12px;">Duration</th>
                 <th style="padding:12px;">Reason</th>
+                <th style="padding:12px;">Attachment</th>
                 <th style="padding:12px; text-align:center;">Actions</th>
               </tr>
             </thead>
@@ -136,6 +138,15 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
                     <td style="padding:15px 12px;"><span class="leave-type" style="border: 1px solid var(--border-color); border-radius: 5px; padding: 3px 7px; font-size: .75rem;"><?= htmlspecialchars($cleanType); ?></span></td>
                     <td style="padding:15px 12px; font-size:0.85rem;"><?= date('M d', strtotime($row['from_date'])); ?> - <?= date('M d', strtotime($row['to_date'])); ?> (<strong><?= $days; ?> Days</strong>)</td>
                     <td style="padding:15px 12px; max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?= htmlspecialchars($row['reason']); ?>"><?= htmlspecialchars($row['reason']); ?></td>
+                    <td>
+                      <?php if (!empty($row['attachment'])): ?>
+                        <a href="uploads/<?= htmlspecialchars($row['attachment']); ?>" download style="color: #4f46e5; font-weight: 600; text-decoration: none;" target="_blank">
+                          <i class="fa-solid fa-file-arrow-down"></i> Download Document
+                        </a>
+                      <?php else: ?>
+                        <span style="color: #9ca3af; font-style: italic;">No attachment</span>
+                      <?php endif; ?>
+                    </td>
                     <td style="padding:15px 12px; text-align:center; white-space:nowrap;">
                       <a href="#" class="btn-approve" onclick="event.preventDefault(); showPortalModal('Approve Request', 'Do you want to approve this leave request?', 'confirm', function(confirmed){ if(confirmed){ window.location.href='approve-requests.php?action=approve&req_id=<?= $row['id']; ?>'; } });">Approve</a>
                       <a href="#" class="btn-reject" onclick="event.preventDefault(); showPortalModal('Reject Request', 'Do you want to reject this leave request?', 'danger', function(confirmed){ if(confirmed){ window.location.href='approve-requests.php?action=reject&req_id=<?= $row['id']; ?>'; } });">Reject</a>

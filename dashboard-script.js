@@ -83,4 +83,40 @@ function showPortalModal(title, text, type, callback) {
   overlay.remove();
 }
 }
+document.addEventListener("DOMContentLoaded", function () {
+  const canvasElement = document.getElementById('dashboardBarChart');
+  if (!canvasElement || !window.chartLabels) return;
+
+  const ctx = canvasElement.getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: window.chartLabels,
+      datasets: [{
+        label: window.chartSeriesLabel,
+        data: window.chartValues,
+        backgroundColor: '#4f46e5',
+        hoverBackgroundColor: '#4338ca',
+        borderRadius: 6,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { 
+          position: 'top', 
+          labels: { font: { family: 'sans-serif', size: 12, weight: '500' }, color: '#4b5563' } 
+        }
+      },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 2, color: '#9ca3af' }, grid: { color: '#f3f4f6' } },
+        x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+      }
+    }
+  });
+});
+
+
 
