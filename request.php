@@ -2,16 +2,12 @@
 session_start();
 require_once 'login-reg-config.php';
 
-if ($_SESSION['role'] === 'manager') {
-  header("Location: dashboard.php");
-  exit();
-}
-
 if (!isset($_SESSION['email'])) {
   header("Location: login-reg-index.php");
   exit();
 }
 
+$userId = $_SESSION['user_id'];
 $message = '';
 $messageClass = '';
 
@@ -21,26 +17,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
   $fromDate  = $_POST['from_date'];
   $toDate    = $_POST['to_date'];
   $reason    = trim($_POST['reason']);
-
-  
+  $isSpecial = isset($_POST['is_special_request']) ? 1 : 0;
 
   if (!empty($leaveType) && !empty($fromDate) && !empty($toDate) && !empty($reason)) {
     
-    if (strtotime($toDate) < strtotime($fromDate)) {
-      $message = "Application Denied: 'To Date' cannot be earlier than your 'From Date'. Negative days are blocked.";
+    $todayDate = date('Y-m-d');
+    
+    if ($fromDate < $todayDate || $toDate < $todayDate) {
+      $message = "Application Denied: You cannot select a leave date in the past. Please choose a date from today onward.";
       $messageClass = "error-message";
-    } else {
-      
+    } 
+    elseif ($toDate < $fromDate) {
+      $message = "Application Denied: The 'To Date' cannot be earlier than your 'From Date'.";
+      $messageClass = "error-message";
+    } 
+    else {
       $requestedDays = (strtotime($toDate) - strtotime($fromDate)) / (60 * 60 * 24) + 1;
 
       $quotaStmt = $conn->prepare("SELECT max_days, max_days_per_month FROM leave_quotas WHERE leave_type = ?");
-
       $quotaStmt->bind_param("s", $leaveType);
       $quotaStmt->execute();
       $quotaRes = $quotaStmt->get_result()->fetch_assoc();
       $quotaStmt->close();
 
-      $maxYearly = $quotaRes['max_days'] ?? 14;
+      $maxYearly  = $quotaRes['max_days'] ?? 14;
       $maxMonthly = $quotaRes['max_days_per_month'] ?? 3;
 
       $targetYear  = date('Y', strtotime($fromDate));
@@ -49,41 +49,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
       $monthCheck = $conn->prepare("
         SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
         FROM leave_requests 
-        WHERE user_id = ? AND leave_type = ? AND status != 'Rejected' 
+        WHERE user_id = ? AND leave_type = ? AND status = 'Approved' 
         AND YEAR(from_date) = ? AND MONTH(from_date) = ?
       ");
       $monthCheck->bind_param("isii", $userId, $leaveType, $targetYear, $targetMonth);
       $monthCheck->execute();
-      $monthRow = $monthCheck->get_result()->fetch_assoc();
+      $daysTakenThisMonth = $monthCheck->get_result()->fetch_assoc()['total'] ?? 0;
       $monthCheck->close();
-      
-      $daysAlreadyTakenThisMonth = $monthRow['total'] ?? 0;
 
-          if (($daysAlreadyTakenThisMonth + $requestedDays) > $maxMonthly) {
-        $message = "Application Denied: The manager has restricted " . htmlspecialchars($leaveType) . " to a maximum of " . $maxMonthly . " days per month. You have already booked/requested " . $daysAlreadyTakenThisMonth . " days for this target month.";
+      $yearCheck = $conn->prepare("
+        SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
+        FROM leave_requests 
+        WHERE user_id = ? AND leave_type = ? AND status = 'Approved'
+      ");
+      $yearCheck->bind_param("is", $userId, $leaveType);
+      $yearCheck->execute();
+      $daysTakenThisYear = $yearCheck->get_result()->fetch_assoc()['total'] ?? 0;
+      $yearCheck->close();
+
+      $exceedsMonth = ($daysTakenThisMonth + $requestedDays) > $maxMonthly;
+      $exceedsYear  = ($daysTakenThisYear + $requestedDays) > $maxYearly;
+
+      if (($exceedsMonth || $exceedsYear) && $isSpecial === 0) {
+        $message = "Application Denied: This request exceeds your remaining leave quota or monthly threshold. If this is an emergency, please check the 'Apply as Special Request' box below.";
         $messageClass = "error-message";
       } else {
-        $attachmentName = null;
-
-        if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
-          $fileTmpPath = $_FILES['attachment']['tmp_name'];
-          $fileName = $_FILES['attachment']['name'];
-          $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-          
-          $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'];
-          if (in_array($fileExtension, $allowedExtensions)) {
-            $attachmentName = 'doc_' . $userId . '_' . time() . '.' . $fileExtension;
-            $uploadDir = './uploads/';
-            if (!is_dir($uploadDir)) { mkdir($uploadDir, 0777, true); }
-            move_uploaded_file($fileTmpPath, $uploadDir . $attachmentName);
-          }
-        }
-
-        $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason, attachment) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("isssss", $userId, $leaveType, $fromDate, $toDate, $reason, $attachmentName);
+        $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason, is_special_request) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param("issssi", $userId, $leaveType, $fromDate, $toDate, $reason, $isSpecial);
 
         if ($stmt->execute()) {
-          $message = "Leave request submitted successfully!";
+          $message = $isSpecial ? "Special Request submitted successfully for Manager review!" : "Standard leave request submitted successfully!";
           $messageClass = "success-message";
         } else {
           $message = "Something went wrong. Please try again.";
@@ -91,7 +86,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
         }
         $stmt->close();
       }
-
     }
   } else {
     $message = "Please fill in all fields.";
@@ -99,7 +93,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
   }
 }
 
+$displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png') ? 'uploads/' . $_SESSION['profile_pic'] : 'https://unsplash.com';
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -237,11 +233,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
         <?php endif; ?>
 
         <a href="profile.php"><i class="fa-solid fa-user nav-icon"></i> My Profile</a>
-        <a href="#"><i class="fa-solid fa-gear nav-icon"></i> Settings</a>
+        <a href="settings.php"><i class="fa-solid fa-gear nav-icon"></i> Settings</a>
       </nav>
       
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', false, function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
           <i class="fa-solid fa-right-from-bracket"></i> Logout
         </a>
       </div>
@@ -282,17 +278,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
             <div class="form-row">
               <div class="form-group">
                 <label for="fromDate">From Date</label>
-                <input type="date" id="fromDate" name="from_date" required onchange="setMinToDate()">
+                <input type="date" id="fromDate" name="from_date" min="<?= date('Y-m-d'); ?>" required>
               </div>
               <div class="form-group">
                 <label for="toDate">To Date</label>
-                <input type="date" id="toDate" name="to_date" required>
+                <input type="date" id="toDate" name="to_date" min="<?= date('Y-m-d'); ?>" required>
               </div>
             </div>
 
             <div class="form-group">
               <label for="reason">Reason</label>
               <textarea id="reason" name="reason" rows="4" placeholder="Provide a reason for your leave request..." required></textarea>
+            </div>
+
+            <div class="form-group" style="display: flex; flex-direction: row; align-items: center; gap: 10px; background: #fdf2f8; padding: 12px; border-radius: 6px; border: 1px solid #fbcfe8; margin-bottom: 20px;">
+              <input type="checkbox" id="isSpecialRequest" name="is_special_request" style="width: auto; cursor: pointer;">
+              <label for="isSpecialRequest" style="font-weight: 600; color: #9d174d; cursor: pointer; margin: 0; font-size: 0.9rem;">
+                Apply as a Special Request (Check this if you have exceeded your leave quota or monthly threshold)
+              </label>
             </div>
 
             <div class="form-group">

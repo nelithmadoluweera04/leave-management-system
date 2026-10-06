@@ -42,7 +42,44 @@ if (isset($_GET['delete_email'])) {
     $deleteAllowed->close();
   }
 }
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_employee_email'])) {
+  $userId = intval($_POST['edit_user_id']);
+  $oldEmail = trim($_POST['old_email']);
+  $newEmail = trim($_POST['new_email']);
 
+  if (!empty($newEmail) && $oldEmail !== $newEmail) {
+    $checkEmail = $conn->prepare("SELECT id FROM user WHERE email = ? AND id != ?");
+    $checkEmail->bind_param("si", $newEmail, $userId);
+    $checkEmail->execute();
+    
+    if ($checkEmail->get_result()->num_rows > 0) {
+      $message = "Update Failed: The new email address is already in use by another user profile!";
+      $messageClass = "error-message";
+    } else {
+      $conn->begin_transaction();
+      try {
+        $updateAllowed = $conn->prepare("UPDATE allowed_emails SET email = ? WHERE email = ?");
+        $updateAllowed->bind_param("ss", $newEmail, $oldEmail);
+        $updateAllowed->execute();
+        $updateAllowed->close();
+
+        $updateUser = $conn->prepare("UPDATE user SET email = ? WHERE id = ?");
+        $updateUser->bind_param("si", $newEmail, $userId);
+        $updateUser->execute();
+        $updateUser->close();
+
+        $conn->commit();
+        $message = "Employee email updated successfully!";
+        $messageClass = "success-message";
+      } catch (Exception $e) {
+        $conn->rollback();
+        $message = "System Error: Failed to update database records.";
+        $messageClass = "error-message";
+      }
+    }
+    $checkEmail->close();
+  }
+}
 
 $employees = $conn->query("
   SELECT ae.email, ae.role, u.id, u.name 
@@ -183,14 +220,13 @@ if (isset($_POST['add_employee'])) {
         <?php endif; ?>
 
         <a href="profile.php"><i class="fa-solid fa-user"></i> My Profile</a>
-        <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
+        <a href="settings.php"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', false, function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
           <i class="fa-solid fa-right-from-bracket"></i> Logout
         </a>
       </div>
-
     </aside>
 
     <main class="main-content">
@@ -282,12 +318,19 @@ if (isset($_POST['add_employee'])) {
                           <?= htmlspecialchars($row['role']); ?>
                         </span>
                       </td>
-                      <td style="text-align: center;">
+                      <td style="text-align: center; white-space: nowrap;">
                         <?php if(empty($row['id']) || $row['id'] !== $_SESSION['user_id']): ?>
                           
                           <a href="#" 
-                            style="color: #ef4444; font-size: 1rem;"
-                            onclick="event.preventDefault(); showPortalModal('Remove Employee', 'Are you completely sure you want to remove this employee account? This will also unauthorize their email.', 'danger', function(confirmed){ if(confirmed){ window.location.href='add-employee.php?delete_email=<?= urlencode($row['email']); ?>'; } });">
+                            style="color: var(--primary-color); font-size: 1rem; margin-right: 12px; display: inline-block;" 
+                            title="Update Email"
+                            onclick="event.preventDefault(); openEditEmailModal('<?= empty($row['id']) ? 0 : $row['id']; ?>', '<?= htmlspecialchars($row['email']); ?>')">
+                            <i class="fa-solid fa-user-pen"></i>
+                          </a>
+
+                          <a href="#" 
+                            style="color: #ef4444; font-size: 1rem; display: inline-block;"
+                            onclick="event.preventDefault(); showPortalModal('Remove Employee', 'Are you completely sure you want to remove this employee account? This will also unauthorize their email.', 'danger', false, function(confirmed){ if(confirmed){ window.location.href='add-employee.php?delete_email=<?= urlencode($row['email']); ?>'; } });">
                             <i class="fa-solid fa-trash-can"></i>
                           </a>
                         <?php else: ?>

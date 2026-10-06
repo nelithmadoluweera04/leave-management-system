@@ -136,25 +136,33 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
         <?php endif; ?>
 
         <a href="profile.php"><i class="fa-solid fa-user"></i> My Profile</a>
-        <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
+        <a href="settings.php"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
 
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
-          <i class="fa-solid fa-right-from-bracket"></i> Logout
-        </a>
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out?', 'danger', false, function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
       </div>
 
     </aside>
 
     <main class="main-content">
-      <header class="top-header">
-        <h1>Dashboard</h1>
+      <header class="top-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <div>
+          <h1 style="margin: 0; font-size: 1.8rem; font-weight: 700; color: var(--text-main);">Dashboard</h1>
+          <div id="portal-clock-widget" style="font-size: 0.9rem; font-weight: 500; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-regular fa-clock" style="color: var(--primary-color);"></i>
+            <span id="live-date"><?= date('l, F d, Y'); ?></span>
+            <span style="color: var(--border-color);">|</span>
+            <span id="live-time" style="font-weight: 600; color: var(--text-main);"><?= date('h:i:s A'); ?></span>
+          </div>
+        </div>
+        
         <div class="user-badge">
           <img src="<?= $displayPic; ?>" alt="User Avatar">
           <span><?= htmlspecialchars($_SESSION['name']); ?></span>
         </div>
       </header>
+
 
       <?php if ($_SESSION['role'] === 'manager'): ?>
         
@@ -248,7 +256,6 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
         </section>
         <div class="content-grid" style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: stretch; margin-top: 25px;">
           
-          <!-- 1. Recent Leave Requests Panel Card Wrapper -->
           <section class="data-card" style="background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; height: 100%; box-sizing: border-box; margin: 0;">
             <h2 class="card-title" style="margin-bottom: 20px; font-size: 1.1rem; font-weight: 700;">Recent Leave Requests</h2>
             <div class="table-wrapper" style="flex: 1;">

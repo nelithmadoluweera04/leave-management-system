@@ -10,30 +10,41 @@ if (!isset($_SESSION['email']) || $_SESSION['role'] !== 'manager') {
 $message = '';
 $messageClass = '';
 
-if (isset($_GET['action']) && isset($_GET['req_id'])) {
-  $requestId = intval($_GET['req_id']);
-  $actionStatus = ($_GET['action'] === 'approve') ? 'Approved' : 'Rejected';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_request'])) {
+  $requestId = intval($_POST['req_id']);
+  $notes     = trim($_POST['rejection_notes']);
 
-  $stmt = $conn->prepare("UPDATE leave_requests SET status = ? WHERE id = ? AND status = 'Pending'");
-  $stmt->bind_param("si", $actionStatus, $requestId);
-  
+  $stmt = $conn->prepare("UPDATE leave_requests SET status = 'Rejected', rejection_reason = ? WHERE id = ?");
+  $stmt->bind_param("si", $notes, $requestId);
   if ($stmt->execute()) {
-    $message = "Request row status modified to " . $actionStatus . " successfully.";
+    $message = "Request successfully rejected with custom remark message saved.";
+    $messageClass = "success-message";
+  }
+  $stmt->close();
+}
+
+// Handle Standard Approval Action Trigger
+if (isset($_GET['action']) && $_GET['action'] === 'approve' && isset($_GET['req_id'])) {
+  $requestId = intval($_GET['req_id']);
+  $stmt = $conn->prepare("UPDATE leave_requests SET status = 'Approved' WHERE id = ?");
+  $stmt->bind_param("i", $requestId);
+  if ($stmt->execute()) {
+    $message = "Request row approved successfully.";
     $messageClass = "success-message";
   }
   $stmt->close();
 }
 
 $pendingRequests = $conn->query("
-  SELECT lr.id, lr.leave_type, lr.from_date, lr.to_date, lr.reason, lr.created_at, lr.attachment, u.name AS employee_name, u.role AS employee_role
-  FROM leave_requests lr
-  JOIN user u ON lr.user_id = u.id
-  WHERE lr.status = 'Pending'
+  SELECT lr.id, lr.leave_type, lr.from_date, lr.to_date, lr.reason, lr.is_special_request, u.name AS employee_name, u.role AS employee_role 
+  FROM leave_requests lr 
+  JOIN user u ON lr.user_id = u.id 
+  WHERE lr.status = 'Pending' 
   ORDER BY lr.id DESC
 ");
-
 $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png') ? 'uploads/' . $_SESSION['profile_pic'] : 'https://unsplash.com';
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -71,13 +82,14 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
         <?php endif; ?>
 
         <a href="profile.php"><i class="fa-solid fa-user"></i> My Profile</a>
-        <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
+        <a href="settings.php"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', false, function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
           <i class="fa-solid fa-right-from-bracket"></i> Logout
         </a>
       </div>
+
     </aside>
 
     <main class="main-content">
@@ -133,23 +145,17 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
                   <tr class="request-row" data-type="<?= htmlspecialchars($cleanType); ?>" data-role="<?= htmlspecialchars($row['employee_role']); ?>" style="border-bottom: 1px solid var(--border-color);">
                     <td style="padding:15px 12px;">
                       <strong><?= htmlspecialchars($row['employee_name']); ?></strong>
+                      <?php if ($row['is_special_request'] == 1): ?>
+                        <span style="display:inline-block; background:#fce7f3; color:#9d174d; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:5px; border:1px solid #fbcfe8;"><i class="fa-solid fa-star"></i> SPECIAL</span>
+                      <?php endif; ?>
                       <br><small style="color: var(--text-muted); text-transform: capitalize;">(<?= htmlspecialchars($row['employee_role']); ?>)</small>
                     </td>
                     <td style="padding:15px 12px;"><span class="leave-type" style="border: 1px solid var(--border-color); border-radius: 5px; padding: 3px 7px; font-size: .75rem;"><?= htmlspecialchars($cleanType); ?></span></td>
                     <td style="padding:15px 12px; font-size:0.85rem;"><?= date('M d', strtotime($row['from_date'])); ?> - <?= date('M d', strtotime($row['to_date'])); ?> (<strong><?= $days; ?> Days</strong>)</td>
-                    <td style="padding:15px 12px; max-width:250px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?= htmlspecialchars($row['reason']); ?>"><?= htmlspecialchars($row['reason']); ?></td>
-                    <td>
-                      <?php if (!empty($row['attachment'])): ?>
-                        <a href="uploads/<?= htmlspecialchars($row['attachment']); ?>" download style="color: #4f46e5; font-weight: 600; text-decoration: none;" target="_blank">
-                          <i class="fa-solid fa-file-arrow-down"></i> Download Document
-                        </a>
-                      <?php else: ?>
-                        <span style="color: #9ca3af; font-style: italic;">No attachment</span>
-                      <?php endif; ?>
-                    </td>
+                    <td style="padding:15px 12px; max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?= htmlspecialchars($row['reason']); ?>"><?= htmlspecialchars($row['reason']); ?></td>
                     <td style="padding:15px 12px; text-align:center; white-space:nowrap;">
                       <a href="#" class="btn-approve" onclick="event.preventDefault(); showPortalModal('Approve Request', 'Do you want to approve this leave request?', 'confirm', function(confirmed){ if(confirmed){ window.location.href='approve-requests.php?action=approve&req_id=<?= $row['id']; ?>'; } });">Approve</a>
-                      <a href="#" class="btn-reject" onclick="event.preventDefault(); showPortalModal('Reject Request', 'Do you want to reject this leave request?', 'danger', function(confirmed){ if(confirmed){ window.location.href='approve-requests.php?action=reject&req_id=<?= $row['id']; ?>'; } });">Reject</a>
+                      <a href="#" class="btn-reject" onclick="event.preventDefault(); showPortalModal('Reject Leave Application', 'Please provide an explanatory remark message detailing why this employee request is being declined:', 'danger', true, function(notesInput){ if(notesInput !== false && notesInput !== '') { let formElement = document.createElement('form'); formElement.method='POST'; formElement.action='approve-requests.php'; let rId = document.createElement('input'); rId.type='hidden'; rId.name='req_id'; rId.value='<?= $row['id']; ?>'; formElement.appendChild(rId); let rNotes = document.createElement('input'); rNotes.type='hidden'; rNotes.name='rejection_notes'; rNotes.value=notesInput; formElement.appendChild(rNotes); let rSubmit = document.createElement('input'); rSubmit.type='hidden'; rSubmit.name='reject_request'; rSubmit.value='1'; formElement.appendChild(rSubmit); document.body.appendChild(formElement); formElement.submit(); } });">Reject</a>
                     </td>
                   </tr>
                 <?php endwhile; ?>

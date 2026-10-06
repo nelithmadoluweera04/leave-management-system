@@ -29,20 +29,39 @@ function render() {
   const rows = data.slice((currentPage - 1) * pageSize, currentPage * pageSize); 
   
   if (tableBody) {
-    tableBody.innerHTML = rows.length ? rows.map((leave) => `
-      <tr>
-        <td><strong>${leave.id}</strong></td>
-        <td><span class="leave-type">${leave.type}</span></td>
-        <td>${leave.from}</td>
-        <td>${leave.to}</td>
-        <td><strong>${leave.days} Days</strong></td>
-        <td><span class="status-badge ${leave.status.toLowerCase()}">${leave.status}</span></td>
-        <td>${leave.applied}</td>
-        <td class="actions">
-          ${leave.status === 'Pending' ? `<button type="button" class="action-link cancel" onclick="openCancelModal('${leave.db_id || leave.id.replace('LV-','')}', '${leave.id}')" style="border:none; background:none; cursor:pointer; color:#dc2626; font-weight:600;">Cancel</button>` : '<span style="color:#9ca3af; font-style:italic; font-size:0.8rem;">Locked</span>'}
-        </td>
-      </tr>
-    `).join('') : '<tr><td colspan="8" style="text-align:center; padding: 20px; color: var(--text-muted);">No leave requests found matching filters.</td></tr>'; 
+    tableBody.innerHTML = rows.length ? rows.map((leave) => {
+      const numericId = leave.id.replace('LV-', '');
+      
+      const rejectNote = leave.status === 'Rejected' ? (leave.reject_msg || 'No reason provided.') : '';
+
+      return `
+        <tr>
+          <td>${leave.id}</td>
+          <td><span class="leave-type">${leave.type}</span></td>
+          <td>${leave.from}</td>
+          <td>${leave.to}</td>
+          <td>${leave.days} Days</td>
+          <td><span class="status-badge ${leave.status.toLowerCase()}">${leave.status}</span></td>
+          <td>${leave.applied}</td>
+          <td class="actions" style="white-space: nowrap;">
+            <!-- Securely attaches data attributes instead of messy inline onclick parameters -->
+            <button type="button" class="action-link view-details-btn" 
+                    data-reason="${leave.reason.replace(/"/g, '&quot;')}" 
+                    data-status="${leave.status}" 
+                    data-reject-msg="${rejectNote.replace(/"/g, '&quot;')}">View</button>
+            
+            ${leave.status === 'Pending' ? `
+              <button type="button" class="action-link cancel" onclick="openCancelModal('numericId', '{leave.id}')">Cancel</button>
+            ` : `
+              <span style="color:#9ca3af; font-style:italic; font-size:0.8rem;">Locked</span>
+            `}
+          </td>
+        </tr>
+      `;
+    }).join('') : '<tr><td colspan="8" style="text-align:center; padding: 20px; color: var(--text-muted);">No leave requests found matching filters.</td></tr>';
+    
+    bindViewDetailsEvents();
+
   }
   
   const resultInfoEl = document.getElementById('resultInfo');
@@ -62,6 +81,55 @@ function render() {
   
   renderCalendar(); 
 }
+
+function bindViewDetailsEvents() {
+  const viewButtons = document.querySelectorAll('.view-details-btn');
+  
+  viewButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const reason = this.getAttribute('data-reason');
+      const status = this.getAttribute('data-status');
+      const rejectMsg = this.getAttribute('data-reject-msg');
+      
+      let contentMarkup = `<strong>My Application Reason:</strong><br>${reason}`;
+      
+      if (status === 'Rejected') {
+        contentMarkup += `<br><br><strong style="color:#ef4444">Manager Rejection Note:</strong><br>${rejectMsg}`;
+      }
+
+      showPortalModal('Leave Request Details', contentMarkup, 'alert', false);
+    });
+  });
+}
+
+function openCancelModal(rawId, displayId) {
+  showPortalModal(
+    'Cancel Leave Request', 
+    `Are you completely sure you want to retract and cancel your pending request <strong>${displayId}</strong>? This action cannot be undone.`, 
+    'danger', 
+    false,
+    function(confirmed) {
+      if (confirmed) {
+        window.location.href = `history.php?cancel_id=${rawId}`;
+      }
+    }
+  );
+}
+
+
+function openCancelModal(rawId, displayId) {
+  showPortalModal(
+    'Cancel Leave Request', 
+    `Are you completely sure you want to retract and cancel your pending request <strong>${displayId}</strong>? This action cannot be undone.`, 
+    'danger', 
+    function(confirmed) {
+      if (confirmed) {
+        window.location.href = `history.php?cancel_id=${rawId}`;
+      }
+    }
+  );
+}
+
 
 function dayKey(date) { 
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`; 

@@ -17,6 +17,36 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 });
 
+function startDashboardClock() {
+  const timeDisplay = document.getElementById('live-time');
+  const dateDisplay = document.getElementById('live-date');
+  
+  if (!timeDisplay || !dateDisplay) return;
+
+  setInterval(() => {
+    const now = new Date();
+    
+    const timeString = now.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+    
+    const dateString = now.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: '2-digit'
+    });
+
+    timeDisplay.textContent = timeString;
+    dateDisplay.textContent = dateString;
+  }, 1000);
+}
+
+document.addEventListener('DOMContentLoaded', startDashboardClock);
+
 /**
  * Launches a custom modal window for alerts or choice confirmations
  * @param {string} title - Heading of the popup alert card
@@ -24,8 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
  * @param {string} type - 'confirm', 'danger', or 'alert' formatting state rules
  * @param {function} callback - Execution method fired on success response
  */
-function showPortalModal(title, text, type, callback) {
-  // Create and inject overlay structure container elements dynamically
+function showPortalModal(title, text, type, hasInput, callback) {
   const overlay = document.createElement('div');
   overlay.className = 'portal-modal-overlay';
   
@@ -44,7 +73,6 @@ function showPortalModal(title, text, type, callback) {
     confirmText = 'OK';
   }
 
-  // Build the layout card inner body structure safely
   overlay.innerHTML = `
     <div class="portal-modal-card">
       <div class="portal-modal-icon ${iconColorClass}">
@@ -52,6 +80,15 @@ function showPortalModal(title, text, type, callback) {
       </div>
       <h3>${title}</h3>
       <p>${text}</p>
+      
+      <!-- DYNAMIC TEXT REASON ROW COMPONENT INPUT -->
+      ${hasInput ? `
+        <div style="margin-top: 15px; margin-bottom: 20px;">
+          <textarea id="modalTextInput" rows="3" placeholder="Provide a reason or message for the employee..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem; outline: none; background: #f9fafb; resize: none; font-family: inherit; box-sizing: border-box;"></textarea>
+          <div id="modalInputError" style="color: #ef4444; font-size: 0.8rem; text-align: left; margin-top: 4px; display: none;">Please provide a reason before rejecting.</div>
+        </div>
+      ` : ''}
+
       <div class="portal-modal-actions">
         ${type !== 'alert' ? `<button class="modal-btn modal-btn-cancel" id="modalCancelBtn">Cancel</button>` : ''}
         <button class="modal-btn ${confirmBtnClass}" id="modalConfirmBtn">${confirmText}</button>
@@ -60,15 +97,28 @@ function showPortalModal(title, text, type, callback) {
   `;
 
   document.body.appendChild(overlay);
-
   overlay.classList.add('active');
 
   const confirmBtn = overlay.querySelector('#modalConfirmBtn');
   const cancelBtn = overlay.querySelector('#modalCancelBtn');
 
   confirmBtn.addEventListener('click', () => {
+    let resultValue = true;
+    
+    if (hasInput) {
+      const inputElement = overlay.querySelector('#modalTextInput');
+      const errorElement = overlay.querySelector('#modalInputError');
+      resultValue = inputElement ? inputElement.value.trim() : '';
+      
+      if (resultValue === '') {
+        if (errorElement) errorElement.style.display = 'block';
+        if (inputElement) inputElement.style.borderColor = '#ef4444';
+        return;
+      }
+    }
+    
     closeModal();
-    if (callback) callback(true);
+    if (callback) callback(resultValue);
   });
 
   if (cancelBtn) {
@@ -79,10 +129,12 @@ function showPortalModal(title, text, type, callback) {
   }
 
   function closeModal() {
-  overlay.classList.remove('active');
-  overlay.remove();
+    overlay.classList.remove('active');
+    overlay.remove();
+  }
 }
-}
+
+
 document.addEventListener("DOMContentLoaded", function () {
   const canvasElement = document.getElementById('dashboardBarChart');
   if (!canvasElement || !window.chartLabels) return;

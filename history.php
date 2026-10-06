@@ -37,11 +37,11 @@ $totalReqQuery   = $conn->query("SELECT COUNT(*) AS total FROM leave_requests WH
 $totalRequests   = $totalReqQuery->fetch_assoc()['total'] ?? 0;
 
 $leaveDataList = [];
-$fetchLeaves = $conn->query("SELECT id, leave_type, from_date, to_date, reason, status, created_at FROM leave_requests WHERE user_id = $userId ORDER BY from_date DESC");
+$fetchLeaves = $conn->query("SELECT id, leave_type, from_date, to_date, reason, status, rejection_reason, created_at FROM leave_requests WHERE user_id = $userId ORDER BY from_date DESC");
 
 while ($row = $fetchLeaves->fetch_assoc()) {
   $daysCount = (strtotime($row['to_date']) - strtotime($row['from_date'])) / (60 * 60 * 24) + 1;
-  $leaveDataList[] = [
+    $leaveDataList[] = [
     'id'      => 'LV-' . str_pad($row['id'], 3, '0', STR_PAD_LEFT),
     'type'    => str_replace(' Leave', '', $row['leave_type']),
     'from'    => date('M d, Y', strtotime($row['from_date'])),
@@ -49,7 +49,8 @@ while ($row = $fetchLeaves->fetch_assoc()) {
     'days'    => $daysCount,
     'status'  => $row['status'],
     'applied' => date('M d, Y', strtotime($row['created_at'])),
-    'reason'  => $row['reason']
+    'reason'  => $row['reason'],
+    'reject_msg' => $row['rejection_reason']
   ];
 }
 ?>
@@ -139,11 +140,11 @@ while ($row = $fetchLeaves->fetch_assoc()) {
         <?php endif; ?>
 
         <a href="profile.php"><i class="fa-solid fa-user"></i> My Profile</a>
-        <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
+        <a href="settings.php"><i class="fa-solid fa-gear"></i> Settings</a>
       </nav>
       
       <div class="sidebar-footer" style="position: relative; z-index: 9999;">
-        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
+        <a href="#" onclick="event.preventDefault(); showPortalModal('System Logout', 'Are you sure you want to log out of your session?', 'danger', false, function(confirmed){ if(confirmed){ window.location.href='logout.php'; } });">
           <i class="fa-solid fa-right-from-bracket"></i> Logout
         </a>
       </div>
