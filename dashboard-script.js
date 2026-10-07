@@ -2,18 +2,8 @@ document.addEventListener("DOMContentLoaded", () => {
   const interactiveCards = document.querySelectorAll('.stat-card, .data-card');
 
   interactiveCards.forEach(card => {
-    card.style.transition = "transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease";
     card.style.cursor = "pointer";
-
-    card.addEventListener('mouseenter', () => {
-      card.style.transform = "translateY(-6px) scale(1.02)";
-      card.style.boxShadow = "0 12px 20px -5px rgba(79, 70, 229, 0.15), 0 8px 16px -8px rgba(0, 0, 0, 0.08)";
-    });
-
-    card.addEventListener('mouseleave', () => {
-      card.style.transform = "translateY(0) scale(1)";
-      card.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05)";
-    });
+    card.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05)";
   });
 });
 
@@ -47,13 +37,6 @@ function startDashboardClock() {
 
 document.addEventListener('DOMContentLoaded', startDashboardClock);
 
-/**
- * Launches a custom modal window for alerts or choice confirmations
- * @param {string} title - Heading of the popup alert card
- * @param {string} text - Explanatory prompt message body text strings
- * @param {string} type - 'confirm', 'danger', or 'alert' formatting state rules
- * @param {function} callback - Execution method fired on success response
- */
 function showPortalModal(title, text, type, hasInput, callback) {
   const overlay = document.createElement('div');
   overlay.className = 'portal-modal-overlay';
@@ -81,7 +64,6 @@ function showPortalModal(title, text, type, hasInput, callback) {
       <h3>${title}</h3>
       <p>${text}</p>
       
-      <!-- DYNAMIC TEXT REASON ROW COMPONENT INPUT -->
       ${hasInput ? `
         <div style="margin-top: 15px; margin-bottom: 20px;">
           <textarea id="modalTextInput" rows="3" placeholder="Provide a reason or message for the employee..." style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem; outline: none; background: #f9fafb; resize: none; font-family: inherit; box-sizing: border-box;"></textarea>
@@ -134,7 +116,6 @@ function showPortalModal(title, text, type, hasInput, callback) {
   }
 }
 
-
 document.addEventListener("DOMContentLoaded", function () {
   const canvasElement = document.getElementById('dashboardBarChart');
   if (!canvasElement || !window.chartLabels) return;
@@ -169,6 +150,3 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 });
-
-
-

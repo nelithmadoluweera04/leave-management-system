@@ -32,59 +32,85 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
       $messageClass = "error-message";
     } 
     else {
-      $requestedDays = (strtotime($toDate) - strtotime($fromDate)) / (60 * 60 * 24) + 1;
-
-      $quotaStmt = $conn->prepare("SELECT max_days, max_days_per_month FROM leave_quotas WHERE leave_type = ?");
-      $quotaStmt->bind_param("s", $leaveType);
-      $quotaStmt->execute();
-      $quotaRes = $quotaStmt->get_result()->fetch_assoc();
-      $quotaStmt->close();
-
-      $maxYearly  = $quotaRes['max_days'] ?? 14;
-      $maxMonthly = $quotaRes['max_days_per_month'] ?? 3;
-
-      $targetYear  = date('Y', strtotime($fromDate));
-      $targetMonth = date('m', strtotime($fromDate));
-
-      $monthCheck = $conn->prepare("
-        SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
-        FROM leave_requests 
-        WHERE user_id = ? AND leave_type = ? AND status = 'Approved' 
-        AND YEAR(from_date) = ? AND MONTH(from_date) = ?
+      $overlapCheck = $conn->prepare("
+        SELECT id, leave_type, status FROM leave_requests 
+        WHERE user_id = ? 
+        AND status IN ('Pending', 'Approved')
+        AND (
+          (from_date <= ? AND to_date >= ?) OR
+          (from_date <= ? AND to_date >= ?) OR
+          (from_date >= ? AND to_date <= ?)
+        )
+        LIMIT 1
       ");
-      $monthCheck->bind_param("isii", $userId, $leaveType, $targetYear, $targetMonth);
-      $monthCheck->execute();
-      $daysTakenThisMonth = $monthCheck->get_result()->fetch_assoc()['total'] ?? 0;
-      $monthCheck->close();
 
-      $yearCheck = $conn->prepare("
-        SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
-        FROM leave_requests 
-        WHERE user_id = ? AND leave_type = ? AND status = 'Approved'
-      ");
-      $yearCheck->bind_param("is", $userId, $leaveType);
-      $yearCheck->execute();
-      $daysTakenThisYear = $yearCheck->get_result()->fetch_assoc()['total'] ?? 0;
-      $yearCheck->close();
-
-      $exceedsMonth = ($daysTakenThisMonth + $requestedDays) > $maxMonthly;
-      $exceedsYear  = ($daysTakenThisYear + $requestedDays) > $maxYearly;
-
-      if (($exceedsMonth || $exceedsYear) && $isSpecial === 0) {
-        $message = "Application Denied: This request exceeds your remaining leave quota or monthly threshold. If this is an emergency, please check the 'Apply as Special Request' box below.";
+      $overlapCheck->bind_param("issssss", $userId, $fromDate, $fromDate, $toDate, $toDate, $fromDate, $toDate);
+      $overlapCheck->execute();
+      $overlapResult = $overlapCheck->get_result();
+      
+      if ($overlapResult->num_rows > 0) {
+        $existingLeave = $overlapResult->fetch_assoc();
+        $message = "Application Denied: You already have a conflicting request (" . htmlspecialchars($existingLeave['leave_type']) . ") with a status of [" . htmlspecialchars($existingLeave['status']) . "] within this date range. You cannot book overlapping dates.";
         $messageClass = "error-message";
-      } else {
-        $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason, is_special_request) VALUES (?, ?, ?, ?, ?, ?)");
-        $stmt->bind_param("issssi", $userId, $leaveType, $fromDate, $toDate, $reason, $isSpecial);
+        $overlapCheck->close();
+      } 
+      else {
+        $overlapCheck->close();
+        
+        $requestedDays = (strtotime($toDate) - strtotime($fromDate)) / (60 * 60 * 24) + 1;
 
-        if ($stmt->execute()) {
-          $message = $isSpecial ? "Special Request submitted successfully for Manager review!" : "Standard leave request submitted successfully!";
-          $messageClass = "success-message";
-        } else {
-          $message = "Something went wrong. Please try again.";
+        $quotaStmt = $conn->prepare("SELECT max_days, max_days_per_month FROM leave_quotas WHERE leave_type = ?");
+        $quotaStmt->bind_param("s", $leaveType);
+        $quotaStmt->execute();
+        $quotaRes = $quotaStmt->get_result()->fetch_assoc();
+        $quotaStmt->close();
+
+        $maxYearly  = $quotaRes['max_days'] ?? 14;
+        $maxMonthly = $quotaRes['max_days_per_month'] ?? 3;
+
+        $targetYear  = date('Y', strtotime($fromDate));
+        $targetMonth = date('m', strtotime($fromDate));
+
+        $monthCheck = $conn->prepare("
+          SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
+          FROM leave_requests 
+          WHERE user_id = ? AND leave_type = ? AND status = 'Approved' 
+          AND YEAR(from_date) = ? AND MONTH(from_date) = ?
+        ");
+        $monthCheck->bind_param("isii", $userId, $leaveType, $targetYear, $targetMonth);
+        $monthCheck->execute();
+        $daysTakenThisMonth = $monthCheck->get_result()->fetch_assoc()['total'] ?? 0;
+        $monthCheck->close();
+
+        $yearCheck = $conn->prepare("
+          SELECT SUM(DATEDIFF(to_date, from_date) + 1) AS total 
+          FROM leave_requests 
+          WHERE user_id = ? AND leave_type = ? AND status = 'Approved'
+        ");
+        $yearCheck->bind_param("is", $userId, $leaveType);
+        $yearCheck->execute();
+        $daysTakenThisYear = $yearCheck->get_result()->fetch_assoc()['total'] ?? 0;
+        $yearCheck->close();
+
+        $exceedsMonth = ($daysTakenThisMonth + $requestedDays) > $maxMonthly;
+        $exceedsYear  = ($daysTakenThisYear + $requestedDays) > $maxYearly;
+
+        if (($exceedsMonth || $exceedsYear) && $isSpecial === 0) {
+          $message = "Application Denied: This request exceeds your remaining leave quota or monthly threshold. If this is an emergency, please check the 'Apply as Special Request' box below.";
           $messageClass = "error-message";
+        } else {
+          $stmt = $conn->prepare("INSERT INTO leave_requests (user_id, leave_type, from_date, to_date, reason, is_special_request) VALUES (?, ?, ?, ?, ?, ?)");
+          $stmt->bind_param("issssi", $userId, $leaveType, $fromDate, $toDate, $reason, $isSpecial);
+
+          if ($stmt->execute()) {
+            $message = $isSpecial ? "Special Request submitted successfully for Manager review!" : "Standard leave request submitted successfully!";
+            $messageClass = "success-message";
+          } else {
+            $message = "Something went wrong. Please try again.";
+            $messageClass = "error-message";
+          }
+          $stmt->close();
         }
-        $stmt->close();
       }
     }
   } else {
@@ -92,6 +118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_leave'])) {
     $messageClass = "error-message";
   }
 }
+
+
 
 $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png') ? 'uploads/' . $_SESSION['profile_pic'] : 'https://unsplash.com';
 ?>
@@ -285,6 +313,7 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
                 <input type="date" id="toDate" name="to_date" min="<?= date('Y-m-d'); ?>" required>
               </div>
             </div>
+
 
             <div class="form-group">
               <label for="reason">Reason</label>

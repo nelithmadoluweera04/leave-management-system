@@ -120,11 +120,6 @@ body{
   object-fit: cover;
 }
 
-/* ==========================================================================
-   ADDED SYSTEM INTERFACE COMPONENTS (COMPLEMENTS CORE THEME LAYOUT)
-   ========================================================================== */
-
-/* Summary Grid Metrics Row */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -175,7 +170,6 @@ body{
 .stat-icon.approved { background-color: #def7ec; color: #03543f; }
 .stat-icon.pending { background-color: #fef3c7; color: #92400e; }
 
-/* Custom Modern Modal Container Stacking Window Layouts */
 .portal-modal-overlay {
   position: fixed;
   top: 0;

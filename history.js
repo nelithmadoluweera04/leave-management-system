@@ -31,7 +31,6 @@ function render() {
   if (tableBody) {
     tableBody.innerHTML = rows.length ? rows.map((leave) => {
       const numericId = leave.id.replace('LV-', '');
-      
       const rejectNote = leave.status === 'Rejected' ? (leave.reject_msg || 'No reason provided.') : '';
 
       return `
@@ -44,14 +43,13 @@ function render() {
           <td><span class="status-badge ${leave.status.toLowerCase()}">${leave.status}</span></td>
           <td>${leave.applied}</td>
           <td class="actions" style="white-space: nowrap;">
-            <!-- Securely attaches data attributes instead of messy inline onclick parameters -->
             <button type="button" class="action-link view-details-btn" 
                     data-reason="${leave.reason.replace(/"/g, '&quot;')}" 
                     data-status="${leave.status}" 
                     data-reject-msg="${rejectNote.replace(/"/g, '&quot;')}">View</button>
             
             ${leave.status === 'Pending' ? `
-              <button type="button" class="action-link cancel" onclick="openCancelModal('numericId', '{leave.id}')">Cancel</button>
+              <button type="button" class="action-link cancel" onclick="openCancelModal('${numericId}', '${leave.id}')">Cancel</button>
             ` : `
               <span style="color:#9ca3af; font-style:italic; font-size:0.8rem;">Locked</span>
             `}
@@ -61,7 +59,6 @@ function render() {
     }).join('') : '<tr><td colspan="8" style="text-align:center; padding: 20px; color: var(--text-muted);">No leave requests found matching filters.</td></tr>';
     
     bindViewDetailsEvents();
-
   }
   
   const resultInfoEl = document.getElementById('resultInfo');
@@ -116,21 +113,6 @@ function openCancelModal(rawId, displayId) {
   );
 }
 
-
-function openCancelModal(rawId, displayId) {
-  showPortalModal(
-    'Cancel Leave Request', 
-    `Are you completely sure you want to retract and cancel your pending request <strong>${displayId}</strong>? This action cannot be undone.`, 
-    'danger', 
-    function(confirmed) {
-      if (confirmed) {
-        window.location.href = `history.php?cancel_id=${rawId}`;
-      }
-    }
-  );
-}
-
-
 function dayKey(date) { 
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`; 
 }
@@ -166,7 +148,7 @@ function renderCalendar() {
     return `
       <div class="calendar-day${outside}" data-date="${dayKey(date)}" style="cursor:pointer;">
         <span class="day-number" style="font-weight:600; font-size:0.8rem;">${date.getDate()}</span>
-        ${events.map((leave) => `<span class="calendar-event \({leave.status.toLowerCase()}" style="display:block; padding:2px 4px; margin-top:2px; border-radius:4px; font-size:0.68rem; font-weight:600;" title="\){leave.id}: \({leave.type}">\){leave.type}</span>`).join('')}
+        ${events.map((leave) => `<span class="calendar-event ${leave.status.toLowerCase()}" style="display:block; padding:2px 4px; margin-top:2px; border-radius:4px; font-size:0.68rem; font-weight:600;" title="${leave.id}: ${leave.type}">${leave.type}</span>`).join('')}
       </div>
     `;
   }).join('');
@@ -259,39 +241,35 @@ if (exportBtn) {
 
 const prevBtn = document.getElementById('previousMonth');
 if (prevBtn) {
-  prevBtn.addEventListener('click', () => {
-    calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1);
-    selectedDate = new Date(calendarDate);
-    renderCalendar();
-  });
+prevBtn.addEventListener('click', () => {
+  calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1);
+  selectedDate = new Date(calendarDate);
+  renderCalendar();
+});
 }
-
 const nextBtn = document.getElementById('nextMonth');
 if (nextBtn) {
   nextBtn.addEventListener('click', () => {
-    calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
-    selectedDate = new Date(calendarDate);
-    renderCalendar();
-  });
+  calendarDate = new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1);
+  selectedDate = new Date(calendarDate);
+  renderCalendar();
+});
 }
-
 const gridEl = document.getElementById('calendarGrid');
 if (gridEl) {
   gridEl.addEventListener('click', (event) => {
-    const dayCard = event.target.closest('.calendar-day');
-    if (!dayCard) return;
-    
-    const [year, month, date] = dayCard.dataset.date.split('-').map(Number);
-    selectedDate = new Date(year, month, date);
-    renderCalendar();
+  const dayCard = event.target.closest('.calendar-day');
+  if (!dayCard) return;
+  const [year, month, date] = dayCard.dataset.date.split('-').map(Number);
+  selectedDate = new Date(year, month, date);
+  renderCalendar();
   });
 }
-
 document.querySelectorAll('.view-button').forEach((button) => {
   button.addEventListener('click', () => setView(button.dataset.view));
 });
 
 document.addEventListener("DOMContentLoaded", () => {
-  render();
-  setView(activeView);
+render();
+setView(activeView);
 });

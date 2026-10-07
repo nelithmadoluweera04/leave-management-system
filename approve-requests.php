@@ -23,7 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reject_request'])) {
   $stmt->close();
 }
 
-// Handle Standard Approval Action Trigger
 if (isset($_GET['action']) && $_GET['action'] === 'approve' && isset($_GET['req_id'])) {
   $requestId = intval($_GET['req_id']);
   $stmt = $conn->prepare("UPDATE leave_requests SET status = 'Approved' WHERE id = ?");
@@ -36,12 +35,13 @@ if (isset($_GET['action']) && $_GET['action'] === 'approve' && isset($_GET['req_
 }
 
 $pendingRequests = $conn->query("
-  SELECT lr.id, lr.leave_type, lr.from_date, lr.to_date, lr.reason, lr.is_special_request, u.name AS employee_name, u.role AS employee_role 
+  SELECT lr.id, lr.user_id, lr.leave_type, lr.from_date, lr.to_date, lr.reason, lr.is_special_request, u.name AS employee_name, u.role AS employee_role 
   FROM leave_requests lr 
   JOIN user u ON lr.user_id = u.id 
   WHERE lr.status = 'Pending' 
   ORDER BY lr.id DESC
 ");
+
 $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== 'default-avatar.png') ? 'uploads/' . $_SESSION['profile_pic'] : 'https://unsplash.com';
 ?>
 
@@ -148,16 +148,39 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
                       <?php if ($row['is_special_request'] == 1): ?>
                         <span style="display:inline-block; background:#fce7f3; color:#9d174d; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:5px; border:1px solid #fbcfe8;"><i class="fa-solid fa-star"></i> SPECIAL</span>
                       <?php endif; ?>
-                      <br><small style="color: var(--text-muted); text-transform: capitalize;">(<?= htmlspecialchars($row['employee_role']); ?>)</small>
+                      <br>
+                      <a href="#" style="font-size:0.78rem; color:var(--primary-color); font-weight:600; text-decoration:none;" onclick="event.preventDefault(); viewEmployeeHistory('<?= $row['user_id']; ?>', '<?= htmlspecialchars($row['employee_name']); ?>')">
+                        <i class="fa-solid fa-clock-rotate-left"></i> View History
+                      </a>
                     </td>
-                    <td style="padding:15px 12px;"><span class="leave-type" style="border: 1px solid var(--border-color); border-radius: 5px; padding: 3px 7px; font-size: .75rem;"><?= htmlspecialchars($cleanType); ?></span></td>
-                    <td style="padding:15px 12px; font-size:0.85rem;"><?= date('M d', strtotime($row['from_date'])); ?> - <?= date('M d', strtotime($row['to_date'])); ?> (<strong><?= $days; ?> Days</strong>)</td>
-                    <td style="padding:15px 12px; max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?= htmlspecialchars($row['reason']); ?>"><?= htmlspecialchars($row['reason']); ?></td>
+                    <td style="padding:15px 12px;">
+                      <span class="leave-type" style="border: 1px solid var(--border-color); border-radius: 5px; padding: 3px 7px; font-size: .75rem;">
+                        <?= htmlspecialchars($cleanType); ?>
+                      </span>
+                    </td>
+
+                    <td style="padding:15px 12px; font-size:0.85rem;">
+                      <?= date('M d', strtotime($row['from_date'])); ?> - <?= date('M d', strtotime($row['to_date'])); ?> (<strong><?= $days; ?> Days</strong>)
+                    </td>
+
+                    <td style="padding:15px 12px; max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?= htmlspecialchars($row['reason']); ?>">
+                      <?= htmlspecialchars($row['reason']); ?>
+                    </td>
+
+                    <td style="padding:15px 12px; color: var(--text-muted); font-size: 0.85rem;">
+                      <?php if (!empty($row['attachment'])): ?>
+                        <a href="uploads/<?= htmlspecialchars($row['attachment']); ?>" target="_blank" style="color: var(--primary-color); font-weight: 600; text-decoration: none;"><i class="fa-solid fa-paperclip"></i> View File</a>
+                      <?php else: ?>
+                        <span style="font-style: italic; opacity: 0.6;">None</span>
+                      <?php endif; ?>
+                    </td>
+
                     <td style="padding:15px 12px; text-align:center; white-space:nowrap;">
-                      <a href="#" class="btn-approve" onclick="event.preventDefault(); showPortalModal('Approve Request', 'Do you want to approve this leave request?', 'confirm', function(confirmed){ if(confirmed){ window.location.href='approve-requests.php?action=approve&req_id=<?= $row['id']; ?>'; } });">Approve</a>
+                      <a href="#" class="btn-approve" onclick="event.preventDefault(); showPortalModal('Approve Request', 'Do you want to approve this leave request?', 'confirm', false, function(confirmed){ if(confirmed){ window.location.href='approve-requests.php?action=approve&req_id=<?= $row['id']; ?>'; } });">Approve</a>
                       <a href="#" class="btn-reject" onclick="event.preventDefault(); showPortalModal('Reject Leave Application', 'Please provide an explanatory remark message detailing why this employee request is being declined:', 'danger', true, function(notesInput){ if(notesInput !== false && notesInput !== '') { let formElement = document.createElement('form'); formElement.method='POST'; formElement.action='approve-requests.php'; let rId = document.createElement('input'); rId.type='hidden'; rId.name='req_id'; rId.value='<?= $row['id']; ?>'; formElement.appendChild(rId); let rNotes = document.createElement('input'); rNotes.type='hidden'; rNotes.name='rejection_notes'; rNotes.value=notesInput; formElement.appendChild(rNotes); let rSubmit = document.createElement('input'); rSubmit.type='hidden'; rSubmit.name='reject_request'; rSubmit.value='1'; formElement.appendChild(rSubmit); document.body.appendChild(formElement); formElement.submit(); } });">Reject</a>
                     </td>
                   </tr>
+
                 <?php endwhile; ?>
               <?php else: ?>
                 <tr class="no-records-fallback"><td colspan="5" style="text-align:center; padding:30px; color:var(--text-muted);">No pending leave requests require review.</td></tr>
@@ -204,6 +227,22 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
       } else if (fallbackRow) {
         fallbackRow.remove();
       }
+    }
+    function viewEmployeeHistory(empId, empName) {
+      showPortalModal(`${empName}'s Leave History`, '<div id="asyncHistoryBox" style="text-align:center; padding:15px;"><i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem; color:var(--primary-color);"></i><br><p style="margin-top:8px; font-size:0.85rem;">Retrieving ledger history logs...</p></div>', 'alert', false);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', 'get-employee-history.php?user_id=' + empId, true);
+      xhr.onload = function() {
+        if (this.status === 200) {
+          const historyContainer = document.getElementById('asyncHistoryBox');
+          if (historyContainer) {
+            historyContainer.parentElement.style.textAlign = 'left';
+            historyContainer.outerHTML = this.responseText;
+          }
+        }
+      };
+      xhr.send();
     }
   </script>
   <script src="dashboard-script.js"></script>
