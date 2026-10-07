@@ -78,8 +78,8 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
       <nav class="sidebar-menu">
         <a href="dashboard.php"><i class="fa-solid fa-house"></i> Dashboard</a>
         <?php if ($_SESSION['role'] !== 'manager'): ?>
-          <a href="../request/request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
-          <a href="../history/history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
+          <a href="request.php"><i class="fa-solid fa-plane-departure"></i> Apply Leave</a>
+          <a href="history.php"><i class="fa-solid fa-clock-rotate-left"></i> Leave History</a>
         <?php endif; ?>
         <?php if ($_SESSION['role'] === 'manager'): ?>
           <a href="approve-requests.php"><i class="fa-solid fa-file-signature"></i> Approve Requests</a>
