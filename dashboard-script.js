@@ -150,3 +150,35 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 });
+
+function toggleMobileMenu() {
+  const sidebarElement = document.querySelector('.sidebar');
+  const iconElement = document.getElementById('menu-icon-shape');
+  
+  if (!sidebarElement) return;
+  
+  sidebarElement.classList.toggle('mobile-open');
+  
+  if (iconElement) {
+    if (sidebarElement.classList.contains('mobile-open')) {
+      iconElement.className = 'fa-solid fa-xmark';
+    } else {
+      iconElement.className = 'fa-solid fa-bars';
+    }
+  }
+}
+
+document.addEventListener('click', (event) => {
+  const sidebarElement = document.querySelector('.sidebar');
+  if (!sidebarElement) return;
+
+  if (sidebarElement.classList.contains('mobile-open')) {
+    const clickInsideSidebar = sidebarElement.contains(event.target);
+    if (!clickInsideSidebar) {
+      sidebarElement.classList.remove('mobile-open');
+      const iconElement = document.getElementById('menu-icon-shape');
+      if (iconElement) iconElement.className = 'fa-solid fa-bars';
+    }
+  }
+});
+

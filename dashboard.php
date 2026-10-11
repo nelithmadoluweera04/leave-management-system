@@ -113,8 +113,13 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
 
     <aside class="sidebar">
       <div class="sidebar-header">
-        <i class="fa-solid fa-calendar-check logo-icon"></i>
-        <h2>LeavePortal</h2>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <i class="fa-solid fa-calendar-check logo-icon"></i>
+          <h2>LeavePortal</h2>
+        </div>
+        <button type="button" class="sidebar-toggle-btn" onclick="toggleMobileMenu()">
+          <i class="fa-solid fa-bars" id="menu-icon-shape"></i>
+        </button>
       </div>
       
       <nav class="sidebar-menu">
