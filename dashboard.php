@@ -108,7 +108,6 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
   <script src="chart.min.js"></script>
 </head>
 <body>
-
   <div class="dashboard-container">
 
     <aside class="sidebar">
@@ -345,37 +344,61 @@ $displayPic = (isset($_SESSION['profile_pic']) && $_SESSION['profile_pic'] !== '
           </section>
         </div>
       <?php endif; ?>
-      <section class="data-card" style="background: var(--card-bg, #ffffff); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-top: 25px; width: 100%; box-sizing: border-box;">
-        <h2 class="card-title" style="margin-bottom: 5px; font-size: 1.1rem; font-weight: 700;">
-          <?= ($userRole === 'admin' || $userRole === 'manager') ? 'Company-wide Monthly Absence Tracker' : 'My Monthly Leave Usage'; ?>
-        </h2>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 25px;">Approved leave allocation distribution metrics for the calendar year <?= $currentYear; ?>.</p>
-        
-        <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 10px; align-items: end; height: 260px; padding-bottom: 20px; border-bottom: 2px solid #e5e7eb; margin-top: 20px;">
-          <?php 
-          $maxMonthValue = max(1, max($chartValues));
-          foreach ($chartLabels as $index => $monthLabel): 
-            $daysCount = $chartValues[$index];
-            $barPercentage = ($daysCount / $maxMonthValue) * 100;
-          ?>
-            <div style="display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end;">
-              <div style="font-size: 0.75rem; font-weight: 700; color: #4f46e5; margin-bottom: 4px; visibility: <?= $daysCount > 0 ? 'visible' : 'hidden'; ?>;">
-                <?= $daysCount; ?><span style="font-size:0.65rem; font-weight:500;">d</span>
-              </div>
-              <div style="width: 100%; max-width: 32px; height: <?= max(4, $barPercentage); ?>%; background: <?= $daysCount > 0 ? '#4f46e5' : '#f3f4f6'; ?>; border-radius: 6px 6px 0 0; transition: background 0.2s;" title="<?= $monthLabel; ?>: <?= $daysCount; ?> Days"></div>
-              <span style="font-size: 0.75rem; font-weight: 600; color: #9ca3af; margin-top: 8px; text-transform: uppercase;"><?= $monthLabel; ?></span>
+      <?php
+        $monthlyData = array_fill(1, 12, 0);
+        $currentYear = date('Y');
+
+        if ($_SESSION['role'] === 'manager') {
+          $chartQuery = $conn->query("
+            SELECT MONTH(from_date) as month_num, SUM(DATEDIFF(to_date, from_date) + 1) as total_days 
+            FROM leave_requests 
+            WHERE status = 'Approved' AND YEAR(from_date) = '$currentYear'
+            GROUP BY MONTH(from_date)
+          ");
+        } else {
+          $chartQuery = $conn->query("
+            SELECT MONTH(from_date) as month_num, SUM(DATEDIFF(to_date, from_date) + 1) as total_days 
+            FROM leave_requests 
+            WHERE status = 'Approved' AND user_id = $userId AND YEAR(from_date) = '$currentYear'
+            GROUP BY MONTH(from_date)
+          ");
+        }
+
+        while ($cRow = $chartQuery->fetch_assoc()) {
+          $monthlyData[(int)$cRow['month_num']] = (int)$cRow['total_days'];
+        }
+
+        $maxMonthValue = max(1, max($monthlyData)); 
+        $monthNames = [1 => 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      ?>
+      <section class="data-card" style="background: var(--card-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-top: 15px;">
+        <h2 class="card-title" style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 5px;">Company-wide Monthly Absence Tracker</h2>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 25px;">Approved leave allocation distribution metrics for the calendar year <?= $currentYear; ?>.</p>
+
+        <div class="native-chart-scroll-box">
+          <div class="native-chart-axis-wrapper">
+            
+            <div class="native-chart-bars-container">
+              <?php foreach ($monthlyData as $monthNum => $daysValue): 
+                $barPercentageHeight = ($daysValue / $maxMonthValue) * 100;
+              ?>
+                <div class="native-chart-column">
+                  <div class="native-chart-bar-track">
+                    <div class="native-chart-bar-fill" style="height: <?= $barPercentageHeight; ?>%;">
+                      <?php if ($daysValue > 0): ?>
+                        <span class="native-chart-bar-value"><?= $daysValue; ?>d</span>
+                      <?php endif; ?>
+                    </div>
+                  </div>
+                  <span class="native-chart-column-label"><?= $monthNames[$monthNum]; ?></span>
+                </div>
+              <?php endforeach; ?>
             </div>
-          <?php endforeach; ?>
+          </div>
         </div>
       </section>
-
     </main>  
   </div>
- <script>
-  window.chartLabels = <?php echo json_encode($chartLabels); ?>;
-  window.chartValues = <?php echo json_encode($chartValues); ?>;
-  window.chartSeriesLabel = "<?php echo ($userRole === 'admin' || $userRole === 'manager') ? 'Total Days (All Employees)' : 'Days Approved'; ?>";
-</script>
-<script src="dashboard-script.js"></script>
+  <script src="dashboard-script.js"></script>
 </body>
 </html>
